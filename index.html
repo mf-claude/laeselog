@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Læselog</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1c1c1e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Læselog">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header class="app-header">
+      <h1>📚 Læselog</h1>
+      <button id="logout-btn" class="link-btn" hidden>Log out</button>
+    </header>
+
+    <section id="login-view">
+      <form id="login-form" class="card">
+        <label for="password-input">Password</label>
+        <input type="password" id="password-input" autocomplete="current-password" required>
+        <button type="submit" class="primary-btn">Log in</button>
+        <p id="login-error" class="error" hidden></p>
+      </form>
+    </section>
+
+    <section id="app-view" hidden>
+      <div id="book-list"></div>
+      <p id="empty-state" class="empty-state" hidden>No books yet. Add one to get started.</p>
+      <button id="add-book-btn" class="fab" aria-label="Add book">+</button>
+    </section>
+  </div>
+
+  <div id="add-book-overlay" class="overlay" hidden>
+    <form id="add-book-form" class="card">
+      <h2>New book</h2>
+      <label for="new-title">Title</label>
+      <input type="text" id="new-title" required autocomplete="off">
+      <label for="new-author">Author (optional)</label>
+      <input type="text" id="new-author" autocomplete="off">
+      <label for="new-start-page">Starting page</label>
+      <input type="number" id="new-start-page" min="0" value="0" inputmode="numeric">
+      <div class="actions">
+        <button type="button" id="cancel-add-book" class="secondary-btn">Cancel</button>
+        <button type="submit" class="primary-btn">Add book</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="book-detail-overlay" class="overlay" hidden>
+    <div class="card" id="book-detail-content">
+      <h2 id="detail-title"></h2>
+      <p id="detail-author" class="muted"></p>
+
+      <form id="update-page-form">
+        <label for="update-page-input">New page</label>
+        <input type="number" id="update-page-input" min="0" required inputmode="numeric">
+        <button type="submit" class="primary-btn">Update page</button>
+      </form>
+
+      <h3>History</h3>
+      <ul id="detail-history" class="history-list"></ul>
+
+      <div class="actions">
+        <button type="button" id="delete-book-btn" class="danger-btn">Delete book</button>
+        <button type="button" id="close-detail-btn" class="secondary-btn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

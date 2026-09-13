@@ -28,3 +28,7 @@ build/
 
 # Claude Code
 .claude/settings.local.json
+
+# Site secrets and runtime data — never commit these
+api/config.php
+api/data.json

@@ -1,0 +1,8 @@
+{
+  "name": "Læselog",
+  "short_name": "Læselog",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0f0f11",
+  "theme_color": "#1c1c1e"
+}
