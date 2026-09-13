@@ -21,7 +21,7 @@ jobs:
           # './*' does not match dotfiles/dotdirs, so .git and .github
           # are skipped automatically without needing an exclude list.
           local_path: './*'
-          remote_path: '/'
+          remote_path: '.'
           sftp_only: true
           # Never deletes remote files that aren't in the repo, so
           # api/config.php and api/data.json on the server are preserved.
