@@ -1,0 +1,32 @@
+name: Production deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install lftp
+        run: sudo apt-get update && sudo apt-get install -y lftp
+
+      - name: Deploy to production via SFTP
+        env:
+          SFTP_HOST: ${{ secrets.SFTP_HOST }}
+          SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
+          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+          REMOTE_DIR: webroots/www/laeselog
+        run: |
+          lftp <<LFTP_SCRIPT
+          set sftp:auto-confirm yes
+          open -u "$SFTP_USERNAME","$SFTP_PASSWORD" sftp://$SFTP_HOST:22
+          mirror --reverse --parallel=2 \
+            --exclude-glob .git/ \
+            --exclude-glob .github/ \
+            ./ "$REMOTE_DIR/"
+          bye
+          LFTP_SCRIPT

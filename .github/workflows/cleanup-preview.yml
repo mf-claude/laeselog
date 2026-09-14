@@ -1,0 +1,34 @@
+name: Cleanup preview
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install lftp
+        run: sudo apt-get update && sudo apt-get install -y lftp
+
+      - name: Compute preview folder name
+        id: branch
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: echo "safe=${HEAD_REF//\//-}" >> "$GITHUB_OUTPUT"
+
+      - name: Delete preview folder via SFTP
+        env:
+          SFTP_HOST: ${{ secrets.SFTP_HOST }}
+          SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
+          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+          REMOTE_DIR: webroots/www/laeselog/preview/${{ steps.branch.outputs.safe }}
+        run: |
+          # || true: closing a PR that never got a successful preview deploy
+          # (folder never existed) shouldn't fail this job.
+          lftp <<LFTP_SCRIPT || true
+          set sftp:auto-confirm yes
+          open -u "$SFTP_USERNAME","$SFTP_PASSWORD" sftp://$SFTP_HOST:22
+          rm -r "$REMOTE_DIR"
+          bye
+          LFTP_SCRIPT
