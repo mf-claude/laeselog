@@ -45,3 +45,25 @@ jobs:
             ./ "$REMOTE_DIR/"
           bye
           LFTP_SCRIPT
+
+      - name: Wait for preview to be reachable
+        env:
+          PREVIEW_URL: ${{ secrets.SITE_BASE_URL }}/preview/${{ steps.branch.outputs.safe }}
+        run: |
+          for i in $(seq 1 10); do
+            status=$(curl -sS -o /dev/null -w '%{http_code}' "$PREVIEW_URL/" || echo 000)
+            if [ "$status" = "200" ]; then
+              echo "Preview is reachable (status $status)"
+              exit 0
+            fi
+            echo "Preview not ready yet (status $status), retrying in 3s..."
+            sleep 3
+          done
+          echo "Preview never became reachable at $PREVIEW_URL/"
+          exit 1
+
+      - name: Smoke test preview
+        env:
+          PREVIEW_URL: ${{ secrets.SITE_BASE_URL }}/preview/${{ steps.branch.outputs.safe }}
+          SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
+        run: ./scripts/smoke-test.sh "$PREVIEW_URL" "$SITE_PASSWORD"
