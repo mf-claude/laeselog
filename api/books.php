@@ -25,6 +25,8 @@ if ($method === 'POST') {
     $author = trim((string)($body['author'] ?? ''));
     $startPage = $body['startPage'] ?? 0;
     $weeklyTarget = $body['weeklyTarget'] ?? DEFAULT_WEEKLY_TARGET;
+    $coverUrl = $body['coverUrl'] ?? null;
+    $totalPages = $body['totalPages'] ?? null;
 
     if ($title === '') {
         send_json(['error' => 'Title is required'], 422);
@@ -34,6 +36,8 @@ if ($method === 'POST') {
     $weeklyTarget = is_numeric($weeklyTarget) && (int)$weeklyTarget > 0
         ? (int)$weeklyTarget
         : DEFAULT_WEEKLY_TARGET;
+    $coverUrl = is_string($coverUrl) && preg_match('#^https://#', $coverUrl) ? $coverUrl : null;
+    $totalPages = is_numeric($totalPages) && (int)$totalPages > 0 ? (int)$totalPages : null;
 
     $now = date('c');
     $book = [
@@ -42,6 +46,8 @@ if ($method === 'POST') {
         'author' => $author,
         'currentPage' => $startPage,
         'weeklyTarget' => $weeklyTarget,
+        'coverUrl' => $coverUrl,
+        'totalPages' => $totalPages,
         'createdAt' => $now,
         'history' => [
             ['page' => $startPage, 'at' => $now],

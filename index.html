@@ -55,8 +55,17 @@
 
   <div id="book-detail-overlay" class="overlay" hidden>
     <div class="card" id="book-detail-content">
-      <h2 id="detail-title"></h2>
-      <p id="detail-author" class="muted"></p>
+      <div class="detail-header">
+        <div class="cover detail-cover">
+          <img id="detail-cover-img" class="cover-img" hidden>
+          <div id="detail-cover-placeholder" class="cover-placeholder">📖</div>
+        </div>
+        <div>
+          <h2 id="detail-title"></h2>
+          <p id="detail-author" class="muted"></p>
+          <p id="detail-page" class="detail-page"></p>
+        </div>
+      </div>
 
       <div class="week-panel">
         <div class="week-stats">
