@@ -4,6 +4,7 @@ declare(strict_types=1);
 require __DIR__ . '/config.php';
 
 define('DATA_FILE', __DIR__ . '/data.json');
+define('DEFAULT_WEEKLY_TARGET', 30);
 
 function start_session(): void
 {
@@ -83,4 +84,13 @@ function write_data(array $data): void
 function generate_id(): string
 {
     return bin2hex(random_bytes(8));
+}
+
+function normalize_book(array $book): array
+{
+    $target = $book['weeklyTarget'] ?? null;
+    $book['weeklyTarget'] = is_numeric($target) && (int)$target > 0
+        ? (int)$target
+        : DEFAULT_WEEKLY_TARGET;
+    return $book;
 }

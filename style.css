@@ -190,10 +190,51 @@ button {
   font-size: 0.8rem;
 }
 
-.book-card .target {
+.week-panel {
+  margin-top: 12px;
+}
+
+.week-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.85rem;
+}
+
+.week-count {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.week-target {
   color: var(--muted);
-  font-size: 0.8rem;
-  margin-top: 4px;
+}
+
+.progress-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.progress-fill.complete {
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+}
+
+.inspire-msg {
+  margin-top: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent);
 }
 
 .fab {
@@ -230,6 +271,24 @@ button {
   overflow-y: auto;
   border-radius: 18px 18px 0 0;
   padding-bottom: calc(20px + env(safe-area-inset-bottom));
+}
+
+#book-detail-content .week-panel {
+  margin-top: 10px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.inline-form {
+  margin-top: 16px;
+}
+
+.inline-form label {
+  margin-top: 0;
+}
+
+.inline-form button {
+  margin-top: 10px;
 }
 
 .history-list {

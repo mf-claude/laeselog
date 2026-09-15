@@ -25,7 +25,7 @@ foreach ($data['books'] as &$book) {
     if ($book['id'] === $bookId) {
         $book['currentPage'] = $page;
         $book['history'][] = ['page' => $page, 'at' => date('c')];
-        $updatedBook = $book;
+        $updatedBook = normalize_book($book);
         break;
     }
 }
