@@ -92,5 +92,14 @@ function normalize_book(array $book): array
     $book['weeklyTarget'] = is_numeric($target) && (int)$target > 0
         ? (int)$target
         : DEFAULT_WEEKLY_TARGET;
+
+    $coverUrl = $book['coverUrl'] ?? null;
+    $book['coverUrl'] = is_string($coverUrl) && $coverUrl !== '' ? $coverUrl : null;
+
+    $totalPages = $book['totalPages'] ?? null;
+    $book['totalPages'] = is_numeric($totalPages) && (int)$totalPages > 0
+        ? (int)$totalPages
+        : null;
+
     return $book;
 }

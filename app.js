@@ -19,8 +19,11 @@
     newStartPage: document.getElementById('new-start-page'),
     newWeeklyTarget: document.getElementById('new-weekly-target'),
     detailOverlay: document.getElementById('book-detail-overlay'),
+    detailCoverImg: document.getElementById('detail-cover-img'),
+    detailCoverPlaceholder: document.getElementById('detail-cover-placeholder'),
     detailTitle: document.getElementById('detail-title'),
     detailAuthor: document.getElementById('detail-author'),
+    detailPage: document.getElementById('detail-page'),
     detailHistory: document.getElementById('detail-history'),
     updatePageForm: document.getElementById('update-page-form'),
     updatePageInput: document.getElementById('update-page-input'),
@@ -125,6 +128,28 @@
     return book.history[book.history.length - 1]?.at || book.createdAt;
   }
 
+  function pageLabel(book) {
+    return book.totalPages
+      ? `Page ${book.currentPage} of ${book.totalPages}`
+      : `Page ${book.currentPage}`;
+  }
+
+  function renderCover(imgEl, placeholderEl, book) {
+    if (book.coverUrl) {
+      imgEl.src = book.coverUrl;
+      imgEl.alt = `Cover of ${book.title}`;
+      imgEl.hidden = false;
+      placeholderEl.hidden = true;
+      imgEl.onerror = () => {
+        imgEl.hidden = true;
+        placeholderEl.hidden = false;
+      };
+    } else {
+      imgEl.hidden = true;
+      placeholderEl.hidden = false;
+    }
+  }
+
   // The reading week runs Saturday 00:00 -> next Friday 23:59:59, local time.
   function getWeekStart(now = new Date()) {
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -181,24 +206,31 @@
       card.type = 'button';
       card.className = 'book-card';
       card.innerHTML = `
-        <div class="title"></div>
-        <div class="author"></div>
-        <div class="progress-row">
-          <span class="page"></span>
-          <span class="updated"></span>
+        <div class="cover">
+          <img class="cover-img" hidden>
+          <div class="cover-placeholder">📖</div>
         </div>
-        <div class="week-panel">
-          <div class="week-stats">
-            <span class="week-count"></span>
-            <span class="week-target"></span>
+        <div class="book-card-body">
+          <div class="title"></div>
+          <div class="author"></div>
+          <div class="progress-row">
+            <span class="page"></span>
+            <span class="updated"></span>
           </div>
-          <div class="progress-bar"><div class="progress-fill"></div></div>
-          <div class="inspire-msg"></div>
+          <div class="week-panel">
+            <div class="week-stats">
+              <span class="week-count"></span>
+              <span class="week-target"></span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill"></div></div>
+            <div class="inspire-msg"></div>
+          </div>
         </div>
       `;
+      renderCover(card.querySelector('.cover-img'), card.querySelector('.cover-placeholder'), book);
       card.querySelector('.title').textContent = book.title;
       card.querySelector('.author').textContent = book.author || '';
-      card.querySelector('.page').textContent = `Page ${book.currentPage}`;
+      card.querySelector('.page').textContent = pageLabel(book);
       card.querySelector('.updated').textContent = formatRelative(lastUpdate(book));
       renderWeekPanel({
         countEl: card.querySelector('.week-count'),
@@ -228,19 +260,71 @@
     el.addBookOverlay.hidden = true;
   });
 
+  // Best-effort cover + page-count lookup via Open Library. Never blocks or
+  // fails book creation — any error just means no cover/page count.
+  async function lookupBookMeta(title, author) {
+    const fallback = { coverUrl: null, totalPages: null };
+    if (!title) return fallback;
+
+    const params = new URLSearchParams({
+      title,
+      limit: '1',
+      fields: 'cover_i,number_of_pages_median',
+    });
+    if (author) params.set('author', author);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    try {
+      const res = await fetch(`https://openlibrary.org/search.json?${params}`, {
+        signal: controller.signal,
+      });
+      if (!res.ok) return fallback;
+      const data = await res.json();
+      const doc = data.docs?.[0];
+      if (!doc) return fallback;
+
+      return {
+        coverUrl: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : null,
+        totalPages: doc.number_of_pages_median ? Math.round(doc.number_of_pages_median) : null,
+      };
+    } catch {
+      return fallback;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   el.addBookForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    await api('books.php', {
-      method: 'POST',
-      body: JSON.stringify({
-        title: el.newTitle.value.trim(),
-        author: el.newAuthor.value.trim(),
-        startPage: Number(el.newStartPage.value) || 0,
-        weeklyTarget: Number(el.newWeeklyTarget.value) || 30,
-      }),
-    });
-    el.addBookOverlay.hidden = true;
-    loadBooks();
+    const title = el.newTitle.value.trim();
+    const author = el.newAuthor.value.trim();
+
+    const submitBtn = el.addBookForm.querySelector('button[type="submit"]');
+    const originalLabel = submitBtn.textContent;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Looking up cover…';
+
+    try {
+      const meta = await lookupBookMeta(title, author);
+      await api('books.php', {
+        method: 'POST',
+        body: JSON.stringify({
+          title,
+          author,
+          startPage: Number(el.newStartPage.value) || 0,
+          weeklyTarget: Number(el.newWeeklyTarget.value) || 30,
+          coverUrl: meta.coverUrl,
+          totalPages: meta.totalPages,
+        }),
+      });
+      el.addBookOverlay.hidden = true;
+      loadBooks();
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalLabel;
+    }
   });
 
   function openDetail(bookId) {
@@ -253,8 +337,10 @@
     const book = books.find((b) => b.id === openBookId);
     if (!book) return;
 
+    renderCover(el.detailCoverImg, el.detailCoverPlaceholder, book);
     el.detailTitle.textContent = book.title;
     el.detailAuthor.textContent = book.author || '';
+    el.detailPage.textContent = pageLabel(book);
     el.updatePageInput.value = book.currentPage;
     el.updateTargetInput.value = book.weeklyTarget;
     renderWeekPanel({
