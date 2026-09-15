@@ -16,7 +16,7 @@ if ($method === 'GET') {
         return strcmp($bTime, $aTime);
     });
 
-    send_json(['books' => $data['books']]);
+    send_json(['books' => array_map('normalize_book', $data['books'])]);
 }
 
 if ($method === 'POST') {
@@ -24,12 +24,16 @@ if ($method === 'POST') {
     $title = trim((string)($body['title'] ?? ''));
     $author = trim((string)($body['author'] ?? ''));
     $startPage = $body['startPage'] ?? 0;
+    $weeklyTarget = $body['weeklyTarget'] ?? DEFAULT_WEEKLY_TARGET;
 
     if ($title === '') {
         send_json(['error' => 'Title is required'], 422);
     }
 
     $startPage = is_numeric($startPage) && (int)$startPage >= 0 ? (int)$startPage : 0;
+    $weeklyTarget = is_numeric($weeklyTarget) && (int)$weeklyTarget > 0
+        ? (int)$weeklyTarget
+        : DEFAULT_WEEKLY_TARGET;
 
     $now = date('c');
     $book = [
@@ -37,6 +41,7 @@ if ($method === 'POST') {
         'title' => $title,
         'author' => $author,
         'currentPage' => $startPage,
+        'weeklyTarget' => $weeklyTarget,
         'createdAt' => $now,
         'history' => [
             ['page' => $startPage, 'at' => $now],
@@ -48,6 +53,35 @@ if ($method === 'POST') {
     write_data($data);
 
     send_json(['book' => $book], 201);
+}
+
+if ($method === 'PATCH') {
+    $body = read_json_body();
+    $id = (string)($body['id'] ?? '');
+    $weeklyTarget = $body['weeklyTarget'] ?? null;
+
+    if ($id === '' || !is_numeric($weeklyTarget) || (int)$weeklyTarget <= 0) {
+        send_json(['error' => 'Invalid input'], 422);
+    }
+
+    $data = read_data();
+    $updatedBook = null;
+
+    foreach ($data['books'] as &$book) {
+        if ($book['id'] === $id) {
+            $book['weeklyTarget'] = (int)$weeklyTarget;
+            $updatedBook = normalize_book($book);
+            break;
+        }
+    }
+    unset($book);
+
+    if ($updatedBook === null) {
+        send_json(['error' => 'Book not found'], 404);
+    }
+
+    write_data($data);
+    send_json(['book' => $updatedBook]);
 }
 
 if ($method === 'DELETE') {

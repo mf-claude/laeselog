@@ -17,12 +17,19 @@
     newTitle: document.getElementById('new-title'),
     newAuthor: document.getElementById('new-author'),
     newStartPage: document.getElementById('new-start-page'),
+    newWeeklyTarget: document.getElementById('new-weekly-target'),
     detailOverlay: document.getElementById('book-detail-overlay'),
     detailTitle: document.getElementById('detail-title'),
     detailAuthor: document.getElementById('detail-author'),
     detailHistory: document.getElementById('detail-history'),
     updatePageForm: document.getElementById('update-page-form'),
     updatePageInput: document.getElementById('update-page-input'),
+    updateTargetForm: document.getElementById('update-target-form'),
+    updateTargetInput: document.getElementById('update-target-input'),
+    detailWeekCount: document.getElementById('detail-week-count'),
+    detailWeekTarget: document.getElementById('detail-week-target'),
+    detailProgressFill: document.getElementById('detail-progress-fill'),
+    detailInspire: document.getElementById('detail-inspire'),
     deleteBookBtn: document.getElementById('delete-book-btn'),
     closeDetailBtn: document.getElementById('close-detail-btn'),
   };
@@ -118,6 +125,53 @@
     return book.history[book.history.length - 1]?.at || book.createdAt;
   }
 
+  // The reading week runs Saturday 00:00 -> next Friday 23:59:59, local time.
+  function getWeekStart(now = new Date()) {
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const daysSinceSaturday = (start.getDay() - 6 + 7) % 7;
+    start.setDate(start.getDate() - daysSinceSaturday);
+    return start;
+  }
+
+  function pageAtWeekStart(book, weekStart) {
+    let baseline = book.history[0]?.page ?? book.currentPage;
+    for (const entry of book.history) {
+      if (new Date(entry.at) <= weekStart) {
+        baseline = entry.page;
+      } else {
+        break;
+      }
+    }
+    return baseline;
+  }
+
+  function weeklyStats(book) {
+    const weekStart = getWeekStart();
+    const baseline = pageAtWeekStart(book, weekStart);
+    const target = book.weeklyTarget || 30;
+    const pagesThisWeek = Math.max(0, book.currentPage - baseline);
+    const targetPage = baseline + target;
+    const progress = Math.min(1, pagesThisWeek / target);
+    const isComplete = pagesThisWeek >= target;
+    return { pagesThisWeek, target, targetPage, progress, isComplete };
+  }
+
+  function inspireMessage({ progress, isComplete }) {
+    if (isComplete) return '🎉 Weekly goal smashed!';
+    if (progress >= 0.5) return '🚀 Great pace, keep going!';
+    if (progress > 0) return '📖 Nice start this week!';
+    return '✨ New week, fresh start!';
+  }
+
+  function renderWeekPanel({ countEl, targetEl, fillEl, msgEl }, book) {
+    const stats = weeklyStats(book);
+    countEl.textContent = `${stats.pagesThisWeek} / ${stats.target} pages this week`;
+    targetEl.textContent = `Target: page ${stats.targetPage}`;
+    fillEl.style.width = `${stats.progress * 100}%`;
+    fillEl.classList.toggle('complete', stats.isComplete);
+    msgEl.textContent = inspireMessage(stats);
+  }
+
   function renderBooks() {
     el.bookList.innerHTML = '';
     el.emptyState.hidden = books.length > 0;
@@ -133,13 +187,25 @@
           <span class="page"></span>
           <span class="updated"></span>
         </div>
-        <div class="target"></div>
+        <div class="week-panel">
+          <div class="week-stats">
+            <span class="week-count"></span>
+            <span class="week-target"></span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill"></div></div>
+          <div class="inspire-msg"></div>
+        </div>
       `;
       card.querySelector('.title').textContent = book.title;
       card.querySelector('.author').textContent = book.author || '';
       card.querySelector('.page').textContent = `Page ${book.currentPage}`;
       card.querySelector('.updated').textContent = formatRelative(lastUpdate(book));
-      card.querySelector('.target').textContent = `Target: page ${book.currentPage + 30}`;
+      renderWeekPanel({
+        countEl: card.querySelector('.week-count'),
+        targetEl: card.querySelector('.week-target'),
+        fillEl: card.querySelector('.progress-fill'),
+        msgEl: card.querySelector('.inspire-msg'),
+      }, book);
       card.addEventListener('click', () => openDetail(book.id));
       el.bookList.appendChild(card);
     }
@@ -154,6 +220,7 @@
   el.addBookBtn.addEventListener('click', () => {
     el.addBookForm.reset();
     el.newStartPage.value = '0';
+    el.newWeeklyTarget.value = '30';
     el.addBookOverlay.hidden = false;
   });
 
@@ -169,6 +236,7 @@
         title: el.newTitle.value.trim(),
         author: el.newAuthor.value.trim(),
         startPage: Number(el.newStartPage.value) || 0,
+        weeklyTarget: Number(el.newWeeklyTarget.value) || 30,
       }),
     });
     el.addBookOverlay.hidden = true;
@@ -187,7 +255,14 @@
 
     el.detailTitle.textContent = book.title;
     el.detailAuthor.textContent = book.author || '';
-    el.updatePageInput.value = book.currentPage + 30;
+    el.updatePageInput.value = book.currentPage + book.weeklyTarget;
+    el.updateTargetInput.value = book.weeklyTarget;
+    renderWeekPanel({
+      countEl: el.detailWeekCount,
+      targetEl: el.detailWeekTarget,
+      fillEl: el.detailProgressFill,
+      msgEl: el.detailInspire,
+    }, book);
 
     el.detailHistory.innerHTML = '';
     const sorted = [...book.history].reverse();
@@ -210,6 +285,21 @@
       body: JSON.stringify({
         bookId: openBookId,
         page: Number(el.updatePageInput.value),
+      }),
+    });
+    const idx = books.findIndex((b) => b.id === book.id);
+    if (idx !== -1) books[idx] = book;
+    renderDetail();
+    renderBooks();
+  });
+
+  el.updateTargetForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const { book } = await api('books.php', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        id: openBookId,
+        weeklyTarget: Number(el.updateTargetInput.value),
       }),
     });
     const idx = books.findIndex((b) => b.id === book.id);
