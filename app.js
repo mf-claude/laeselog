@@ -133,11 +133,13 @@
           <span class="page"></span>
           <span class="updated"></span>
         </div>
+        <div class="target"></div>
       `;
       card.querySelector('.title').textContent = book.title;
       card.querySelector('.author').textContent = book.author || '';
       card.querySelector('.page').textContent = `Page ${book.currentPage}`;
       card.querySelector('.updated').textContent = formatRelative(lastUpdate(book));
+      card.querySelector('.target').textContent = `Target: page ${book.currentPage + 30}`;
       card.addEventListener('click', () => openDetail(book.id));
       el.bookList.appendChild(card);
     }
@@ -185,7 +187,7 @@
 
     el.detailTitle.textContent = book.title;
     el.detailAuthor.textContent = book.author || '';
-    el.updatePageInput.value = book.currentPage;
+    el.updatePageInput.value = book.currentPage + 30;
 
     el.detailHistory.innerHTML = '';
     const sorted = [...book.history].reverse();
