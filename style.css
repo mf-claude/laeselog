@@ -190,6 +190,12 @@ button {
   font-size: 0.8rem;
 }
 
+.book-card .target {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-top: 4px;
+}
+
 .fab {
   position: fixed;
   right: 24px;
