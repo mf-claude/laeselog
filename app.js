@@ -255,7 +255,7 @@
 
     el.detailTitle.textContent = book.title;
     el.detailAuthor.textContent = book.author || '';
-    el.updatePageInput.value = book.currentPage + book.weeklyTarget;
+    el.updatePageInput.value = book.currentPage;
     el.updateTargetInput.value = book.weeklyTarget;
     renderWeekPanel({
       countEl: el.detailWeekCount,
