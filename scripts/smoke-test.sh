@@ -94,6 +94,7 @@ check "total pages value" "$(jq -r '.book.totalPages' <<<"$RESP_BODY")" "300"
 RESP=$(api GET "lookup.php?title=Vitello"); split_status "$RESP"
 check "book lookup status" "$STATUS" "200"
 check "book lookup returns results array" "$(jq -r '.results | type' <<<"$RESP_BODY")" "array"
+echo "info - lookup found $(jq -r '.results | length' <<<"$RESP_BODY") candidate(s): $(jq -r '[.results[] | "\(.title) [\(.source), \(.totalPages // "?") p]"] | join("; ")' <<<"$RESP_BODY")"
 
 RESP=$(api DELETE "books.php?id=$BOOK_ID"); split_status "$RESP"
 check "delete book status" "$STATUS" "200"
