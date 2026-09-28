@@ -6,6 +6,7 @@
   --border: #e2e2e5;
   --accent: #2563eb;
   --danger: #dc2626;
+  --book: #8b5cf6;
   color-scheme: light dark;
 }
 
@@ -18,6 +19,7 @@
     --border: #2e2e31;
     --accent: #3b82f6;
     --danger: #f87171;
+    --book: #a78bfa;
   }
 }
 
@@ -371,4 +373,80 @@ button {
 .history-list .hist-date {
   color: var(--muted);
   font-size: 0.85rem;
+}
+
+.book-progress {
+  margin-top: 12px;
+}
+
+.book-count {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.book-fill {
+  background: var(--book);
+}
+
+.find-book-btn {
+  margin-top: 12px;
+  width: 100%;
+}
+
+.match-status {
+  margin: 10px 0 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.match-results {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.match-option {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  width: 100%;
+  text-align: left;
+  padding: 8px;
+  border-radius: 10px;
+  border: 2px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.match-option.selected {
+  border-color: var(--accent);
+}
+
+.match-cover {
+  width: 40px;
+}
+
+.match-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.match-title {
+  font-weight: 600;
+}
+
+.match-meta,
+.match-pages {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-top: 2px;
+}
+
+.match-none {
+  justify-content: center;
+  color: var(--muted);
+  font-size: 0.9rem;
 }

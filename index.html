@@ -42,6 +42,11 @@
       <input type="text" id="new-title" required autocomplete="off">
       <label for="new-author">Author (optional)</label>
       <input type="text" id="new-author" autocomplete="off">
+      <button type="button" id="find-book-btn" class="secondary-btn find-book-btn">🔍 Find book</button>
+      <p id="match-status" class="match-status" hidden></p>
+      <div id="match-results" class="match-results" hidden></div>
+      <label for="new-total-pages">Pages in book (optional)</label>
+      <input type="number" id="new-total-pages" min="1" inputmode="numeric">
       <label for="new-start-page">Starting page</label>
       <input type="number" id="new-start-page" min="0" value="0" inputmode="numeric">
       <label for="new-weekly-target">Weekly target (pages)</label>
@@ -74,6 +79,13 @@
         </div>
         <div class="progress-bar"><div id="detail-progress-fill" class="progress-fill"></div></div>
         <p id="detail-inspire" class="inspire-msg"></p>
+        <div id="detail-book-progress" class="book-progress" hidden>
+          <div class="week-stats">
+            <span id="detail-book-count" class="book-count"></span>
+            <span id="detail-book-left" class="week-target"></span>
+          </div>
+          <div class="progress-bar"><div id="detail-book-fill" class="progress-fill book-fill"></div></div>
+        </div>
       </div>
 
       <form id="update-page-form">
@@ -86,6 +98,12 @@
         <label for="update-target-input">Weekly target (pages)</label>
         <input type="number" id="update-target-input" min="1" required inputmode="numeric">
         <button type="submit" class="secondary-btn">Save target</button>
+      </form>
+
+      <form id="update-total-form" class="inline-form">
+        <label for="update-total-input">Pages in book</label>
+        <input type="number" id="update-total-input" min="1" inputmode="numeric" placeholder="Unknown">
+        <button type="submit" class="secondary-btn">Save pages</button>
       </form>
 
       <h3>History</h3>
