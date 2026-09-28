@@ -85,6 +85,17 @@ RESP=$(api POST entries.php "$(jq -n --arg id "$BOOK_ID" '{bookId:$id, page:42}'
 check "update page status" "$STATUS" "200"
 check "updated page value" "$(jq -r '.book.currentPage' <<<"$RESP_BODY")" "42"
 
+RESP=$(api PATCH books.php "$(jq -n --arg id "$BOOK_ID" '{id:$id, totalPages:300}')"); split_status "$RESP"
+check "set total pages status" "$STATUS" "200"
+check "total pages value" "$(jq -r '.book.totalPages' <<<"$RESP_BODY")" "300"
+
+# Lookup depends on external APIs, so only check that the endpoint answers
+# with a results array — not what it finds.
+RESP=$(api GET "lookup.php?title=Vitello"); split_status "$RESP"
+check "book lookup status" "$STATUS" "200"
+check "book lookup returns results array" "$(jq -r '.results | type' <<<"$RESP_BODY")" "array"
+echo "info - lookup found $(jq -r '.results | length' <<<"$RESP_BODY") candidate(s): $(jq -r '[.results[] | "\(.title) [\(.source), \(.totalPages // "?") p]"] | join("; ")' <<<"$RESP_BODY")"
+
 RESP=$(api DELETE "books.php?id=$BOOK_ID"); split_status "$RESP"
 check "delete book status" "$STATUS" "200"
 

@@ -16,6 +16,10 @@
     cancelAddBook: document.getElementById('cancel-add-book'),
     newTitle: document.getElementById('new-title'),
     newAuthor: document.getElementById('new-author'),
+    newTotalPages: document.getElementById('new-total-pages'),
+    findBookBtn: document.getElementById('find-book-btn'),
+    matchStatus: document.getElementById('match-status'),
+    matchResults: document.getElementById('match-results'),
     newStartPage: document.getElementById('new-start-page'),
     newWeeklyTarget: document.getElementById('new-weekly-target'),
     detailOverlay: document.getElementById('book-detail-overlay'),
@@ -33,12 +37,24 @@
     detailWeekTarget: document.getElementById('detail-week-target'),
     detailProgressFill: document.getElementById('detail-progress-fill'),
     detailInspire: document.getElementById('detail-inspire'),
+    detailBookProgress: document.getElementById('detail-book-progress'),
+    detailBookCount: document.getElementById('detail-book-count'),
+    detailBookLeft: document.getElementById('detail-book-left'),
+    detailBookFill: document.getElementById('detail-book-fill'),
+    updateTotalForm: document.getElementById('update-total-form'),
+    updateTotalInput: document.getElementById('update-total-input'),
     deleteBookBtn: document.getElementById('delete-book-btn'),
     closeDetailBtn: document.getElementById('close-detail-btn'),
   };
 
   let books = [];
   let openBookId = null;
+
+  // Add-book match flow: 'idle' (not searched yet), 'choosing' (results
+  // shown, nothing picked), 'chosen' (a result picked) or 'none' (user said
+  // none of the results fit, or there were none).
+  let matchState = 'idle';
+  let selectedMatch = null;
 
   async function api(path, options = {}) {
     const res = await fetch(API + path, {
@@ -197,6 +213,20 @@
     msgEl.textContent = inspireMessage(stats);
   }
 
+  function renderBookProgress({ panelEl, countEl, leftEl, fillEl }, book) {
+    if (!book.totalPages) {
+      panelEl.hidden = true;
+      return;
+    }
+    const progress = Math.min(1, book.currentPage / book.totalPages);
+    const pagesLeft = Math.max(0, book.totalPages - book.currentPage);
+    panelEl.hidden = false;
+    countEl.textContent = `${Math.round(progress * 100)}% of the book`;
+    leftEl.textContent = pagesLeft > 0 ? `${pagesLeft} pages left` : '🏁 Finished!';
+    fillEl.style.width = `${progress * 100}%`;
+    fillEl.classList.toggle('complete', pagesLeft === 0);
+  }
+
   function renderBooks() {
     el.bookList.innerHTML = '';
     el.emptyState.hidden = books.length > 0;
@@ -224,6 +254,13 @@
             </div>
             <div class="progress-bar"><div class="progress-fill"></div></div>
             <div class="inspire-msg"></div>
+            <div class="book-progress" hidden>
+              <div class="week-stats">
+                <span class="book-count"></span>
+                <span class="week-target book-left"></span>
+              </div>
+              <div class="progress-bar"><div class="progress-fill book-fill"></div></div>
+            </div>
           </div>
         </div>
       `;
@@ -238,6 +275,12 @@
         fillEl: card.querySelector('.progress-fill'),
         msgEl: card.querySelector('.inspire-msg'),
       }, book);
+      renderBookProgress({
+        panelEl: card.querySelector('.book-progress'),
+        countEl: card.querySelector('.book-count'),
+        leftEl: card.querySelector('.book-left'),
+        fillEl: card.querySelector('.book-fill'),
+      }, book);
       card.addEventListener('click', () => openDetail(book.id));
       el.bookList.appendChild(card);
     }
@@ -249,10 +292,24 @@
     renderBooks();
   }
 
+  function resetMatch() {
+    matchState = 'idle';
+    selectedMatch = null;
+    el.matchResults.hidden = true;
+    el.matchResults.innerHTML = '';
+    el.matchStatus.hidden = true;
+  }
+
+  function showMatchStatus(text) {
+    el.matchStatus.textContent = text;
+    el.matchStatus.hidden = false;
+  }
+
   el.addBookBtn.addEventListener('click', () => {
     el.addBookForm.reset();
     el.newStartPage.value = '0';
     el.newWeeklyTarget.value = '30';
+    resetMatch();
     el.addBookOverlay.hidden = false;
   });
 
@@ -260,70 +317,139 @@
     el.addBookOverlay.hidden = true;
   });
 
-  // Best-effort cover + page-count lookup via Open Library. Never blocks or
-  // fails book creation — any error just means no cover/page count.
-  async function lookupBookMeta(title, author) {
-    const fallback = { coverUrl: null, totalPages: null };
-    if (!title) return fallback;
-
-    const params = new URLSearchParams({
-      title,
-      limit: '1',
-      fields: 'cover_i,number_of_pages_median',
+  // Typing a new title/author makes any earlier search results stale.
+  for (const input of [el.newTitle, el.newAuthor]) {
+    input.addEventListener('input', () => {
+      if (matchState !== 'idle') resetMatch();
     });
-    if (author) params.set('author', author);
+  }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
+  function pagesText(match) {
+    if (!match.totalPages) return 'Page count unknown';
+    return match.pagesEstimated ? `~${match.totalPages} pages (estimate)` : `${match.totalPages} pages`;
+  }
 
-    try {
-      const res = await fetch(`https://openlibrary.org/search.json?${params}`, {
-        signal: controller.signal,
-      });
-      if (!res.ok) return fallback;
-      const data = await res.json();
-      const doc = data.docs?.[0];
-      if (!doc) return fallback;
-
-      return {
-        coverUrl: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : null,
-        totalPages: doc.number_of_pages_median ? Math.round(doc.number_of_pages_median) : null,
-      };
-    } catch {
-      return fallback;
-    } finally {
-      clearTimeout(timeout);
+  function selectMatch(match, optionEl) {
+    selectedMatch = match;
+    matchState = match ? 'chosen' : 'none';
+    for (const opt of el.matchResults.querySelectorAll('.match-option')) {
+      opt.classList.toggle('selected', opt === optionEl);
+    }
+    if (match) {
+      el.newTitle.value = match.title;
+      el.newAuthor.value = match.author || el.newAuthor.value;
+      el.newTotalPages.value = match.totalPages || '';
+      showMatchStatus(match.totalPages
+        ? '✅ Book chosen. Check the page count matches your copy.'
+        : '✅ Book chosen. Add the page count from your copy if you can.');
+    } else {
+      showMatchStatus('OK — the book will be added without a cover.');
     }
   }
 
-  el.addBookForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
+  function renderMatches(results) {
+    el.matchResults.innerHTML = '';
+    for (const match of results) {
+      const opt = document.createElement('button');
+      opt.type = 'button';
+      opt.className = 'match-option';
+      opt.innerHTML = `
+        <div class="cover match-cover">
+          <img class="cover-img" hidden>
+          <div class="cover-placeholder">📖</div>
+        </div>
+        <div class="match-body">
+          <div class="match-title"></div>
+          <div class="match-meta"></div>
+          <div class="match-pages"></div>
+        </div>
+      `;
+      renderCover(opt.querySelector('.cover-img'), opt.querySelector('.cover-placeholder'), match);
+      opt.querySelector('.match-title').textContent = match.title;
+      opt.querySelector('.match-meta').textContent = [
+        match.author,
+        match.year,
+        match.language === 'da' ? '🇩🇰 Danish' : null,
+      ].filter(Boolean).join(' · ');
+      opt.querySelector('.match-pages').textContent = pagesText(match);
+      opt.addEventListener('click', () => selectMatch(match, opt));
+      el.matchResults.appendChild(opt);
+    }
+
+    const none = document.createElement('button');
+    none.type = 'button';
+    none.className = 'match-option match-none';
+    none.textContent = 'None of these — add without a match';
+    none.addEventListener('click', () => selectMatch(null, none));
+    el.matchResults.appendChild(none);
+    el.matchResults.hidden = false;
+  }
+
+  async function findBook() {
     const title = el.newTitle.value.trim();
     const author = el.newAuthor.value.trim();
+    if (!title) {
+      el.newTitle.reportValidity();
+      return;
+    }
+
+    resetMatch();
+    el.findBookBtn.disabled = true;
+    showMatchStatus('Searching…');
+    try {
+      const params = new URLSearchParams({ title });
+      if (author) params.set('author', author);
+      const { results } = await api(`lookup.php?${params}`);
+      if (results.length === 0) {
+        matchState = 'none';
+        showMatchStatus('No match found. You can still add the book — type the page count yourself.');
+        return;
+      }
+      matchState = 'choosing';
+      showMatchStatus('Which one is your book? Tap the right one.');
+      renderMatches(results);
+    } catch {
+      matchState = 'none';
+      showMatchStatus('Could not search right now. You can still add the book.');
+    } finally {
+      el.findBookBtn.disabled = false;
+    }
+  }
+
+  el.findBookBtn.addEventListener('click', findBook);
+
+  el.addBookForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    // Make sure the user has looked at the matches before adding the book.
+    if (matchState === 'idle') {
+      await findBook();
+      return;
+    }
+    if (matchState === 'choosing') {
+      showMatchStatus('👆 Pick your book in the list, or choose "None of these".');
+      el.matchStatus.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      return;
+    }
 
     const submitBtn = el.addBookForm.querySelector('button[type="submit"]');
-    const originalLabel = submitBtn.textContent;
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Looking up cover…';
-
     try {
-      const meta = await lookupBookMeta(title, author);
       await api('books.php', {
         method: 'POST',
         body: JSON.stringify({
-          title,
-          author,
+          title: el.newTitle.value.trim(),
+          author: el.newAuthor.value.trim(),
           startPage: Number(el.newStartPage.value) || 0,
           weeklyTarget: Number(el.newWeeklyTarget.value) || 30,
-          coverUrl: meta.coverUrl,
-          totalPages: meta.totalPages,
+          coverUrl: selectedMatch?.coverUrl ?? null,
+          totalPages: Number(el.newTotalPages.value) || null,
         }),
       });
       el.addBookOverlay.hidden = true;
       loadBooks();
     } finally {
       submitBtn.disabled = false;
-      submitBtn.textContent = originalLabel;
     }
   });
 
@@ -343,11 +469,18 @@
     el.detailPage.textContent = pageLabel(book);
     el.updatePageInput.value = book.currentPage;
     el.updateTargetInput.value = book.weeklyTarget;
+    el.updateTotalInput.value = book.totalPages ?? '';
     renderWeekPanel({
       countEl: el.detailWeekCount,
       targetEl: el.detailWeekTarget,
       fillEl: el.detailProgressFill,
       msgEl: el.detailInspire,
+    }, book);
+    renderBookProgress({
+      panelEl: el.detailBookProgress,
+      countEl: el.detailBookCount,
+      leftEl: el.detailBookLeft,
+      fillEl: el.detailBookFill,
     }, book);
 
     el.detailHistory.innerHTML = '';
@@ -386,6 +519,21 @@
       body: JSON.stringify({
         id: openBookId,
         weeklyTarget: Number(el.updateTargetInput.value),
+      }),
+    });
+    const idx = books.findIndex((b) => b.id === book.id);
+    if (idx !== -1) books[idx] = book;
+    renderDetail();
+    renderBooks();
+  });
+
+  el.updateTotalForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const { book } = await api('books.php', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        id: openBookId,
+        totalPages: Number(el.updateTotalInput.value) || null,
       }),
     });
     const idx = books.findIndex((b) => b.id === book.id);

@@ -22,10 +22,12 @@ jobs:
       - name: Write preview config.php
         env:
           SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
+          GOOGLE_BOOKS_API_KEY: ${{ secrets.GOOGLE_BOOKS_API_KEY }}
         run: |
           cat > api/config.php <<PHP
           <?php
           define('SITE_PASSWORD', '$SITE_PASSWORD');
+          define('GOOGLE_BOOKS_API_KEY', '$GOOGLE_BOOKS_API_KEY');
           PHP
 
       - name: Deploy preview via SFTP

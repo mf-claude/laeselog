@@ -64,10 +64,21 @@ if ($method === 'POST') {
 if ($method === 'PATCH') {
     $body = read_json_body();
     $id = (string)($body['id'] ?? '');
+    $hasTarget = array_key_exists('weeklyTarget', $body);
+    $hasTotal = array_key_exists('totalPages', $body);
     $weeklyTarget = $body['weeklyTarget'] ?? null;
+    $totalPages = $body['totalPages'] ?? null;
 
-    if ($id === '' || !is_numeric($weeklyTarget) || (int)$weeklyTarget <= 0) {
+    if ($id === '' || (!$hasTarget && !$hasTotal)) {
         send_json(['error' => 'Invalid input'], 422);
+    }
+    if ($hasTarget && (!is_numeric($weeklyTarget) || (int)$weeklyTarget <= 0)) {
+        send_json(['error' => 'Invalid weekly target'], 422);
+    }
+    // null (or empty) clears the page count; otherwise it must be positive.
+    if ($hasTotal && $totalPages !== null && $totalPages !== ''
+        && (!is_numeric($totalPages) || (int)$totalPages <= 0)) {
+        send_json(['error' => 'Invalid total pages'], 422);
     }
 
     $data = read_data();
@@ -75,7 +86,12 @@ if ($method === 'PATCH') {
 
     foreach ($data['books'] as &$book) {
         if ($book['id'] === $id) {
-            $book['weeklyTarget'] = (int)$weeklyTarget;
+            if ($hasTarget) {
+                $book['weeklyTarget'] = (int)$weeklyTarget;
+            }
+            if ($hasTotal) {
+                $book['totalPages'] = is_numeric($totalPages) ? (int)$totalPages : null;
+            }
             $updatedBook = normalize_book($book);
             break;
         }
