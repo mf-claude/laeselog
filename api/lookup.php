@@ -121,12 +121,13 @@ function open_library_lookup(string $title, string $author): array
 {
     // lang=da makes the nested "editions" pick the Danish edition of each
     // work when one exists, so we get the Danish title/cover/page count
-    // rather than the original-language ones.
+    // rather than the original-language ones. Note: "editions" only comes
+    // back populated when the work "key" is also requested.
     $params = [
         'title' => $title,
         'lang' => 'da',
         'limit' => (string)MAX_RESULTS,
-        'fields' => 'title,author_name,cover_i,first_publish_year,number_of_pages_median,'
+        'fields' => 'key,title,language,author_name,cover_i,first_publish_year,number_of_pages_median,'
             . 'editions,editions.title,editions.number_of_pages,editions.cover_i,'
             . 'editions.language,editions.publish_date',
     ];
@@ -138,8 +139,11 @@ function open_library_lookup(string $title, string $author): array
     $out = [];
     foreach ($data['docs'] ?? [] as $doc) {
         $edition = $doc['editions']['docs'][0] ?? [];
-        $isDanish = in_array('dan', $edition['language'] ?? [], true);
-        $useEdition = $isDanish ? $edition : [];
+        $editionIsDanish = in_array('dan', $edition['language'] ?? [], true);
+        $useEdition = $editionIsDanish ? $edition : [];
+        // A work published only in Danish counts as Danish even when
+        // Open Library has no edition details for it.
+        $isDanish = $editionIsDanish || ($doc['language'] ?? []) === ['dan'];
 
         $editionPages = positive_int($useEdition['number_of_pages'] ?? null);
         $medianPages = positive_int($doc['number_of_pages_median'] ?? null);
