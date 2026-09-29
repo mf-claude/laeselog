@@ -89,6 +89,16 @@ RESP=$(api PATCH books.php "$(jq -n --arg id "$BOOK_ID" '{id:$id, totalPages:300
 check "set total pages status" "$STATUS" "200"
 check "total pages value" "$(jq -r '.book.totalPages' <<<"$RESP_BODY")" "300"
 
+# Comments call the Anthropic API; 503 means no key is configured, which is
+# allowed (comments are optional). Log the text so tone can be eyeballed.
+RESP=$(api POST comment.php "$(jq -n --arg id "$BOOK_ID" '{bookId:$id, pagesThisWeek:37, weeklyTarget:30, daysLeftInWeek:3}')"); split_status "$RESP"
+if [ "$STATUS" = "503" ]; then
+  echo "info - comments not configured (no ANTHROPIC_API_KEY), skipping"
+else
+  check "comment status" "$STATUS" "200"
+  echo "info - comment: $(jq -r '.book.comments[-1].text // "(none)"' <<<"$RESP_BODY")"
+fi
+
 # Lookup depends on external APIs, so only check that the endpoint answers
 # with a results array — not what it finds.
 RESP=$(api GET "lookup.php?title=Vitello"); split_status "$RESP"

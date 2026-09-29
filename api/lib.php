@@ -68,6 +68,13 @@ function read_data(): array
 
 function write_data(array $data): void
 {
+    // Encode before touching the file: if encoding fails we must not have
+    // truncated data.json already, or every book would be lost.
+    $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+    if ($json === false) {
+        send_json(['error' => 'Could not encode data'], 500);
+    }
+
     $fp = fopen(DATA_FILE, 'c+');
     if (!$fp) {
         send_json(['error' => 'Could not write data'], 500);
@@ -75,7 +82,7 @@ function write_data(array $data): void
     flock($fp, LOCK_EX);
     ftruncate($fp, 0);
     rewind($fp);
-    fwrite($fp, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    fwrite($fp, $json);
     fflush($fp);
     flock($fp, LOCK_UN);
     fclose($fp);
@@ -100,6 +107,8 @@ function normalize_book(array $book): array
     $book['totalPages'] = is_numeric($totalPages) && (int)$totalPages > 0
         ? (int)$totalPages
         : null;
+
+    $book['comments'] = is_array($book['comments'] ?? null) ? $book['comments'] : [];
 
     return $book;
 }

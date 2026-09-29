@@ -7,6 +7,7 @@
   --accent: #2563eb;
   --danger: #dc2626;
   --book: #8b5cf6;
+  --bubble: #ede9fe;
   color-scheme: light dark;
 }
 
@@ -20,6 +21,7 @@
     --accent: #3b82f6;
     --danger: #f87171;
     --book: #a78bfa;
+    --bubble: #2e2640;
   }
 }
 
@@ -449,4 +451,34 @@ button {
   justify-content: center;
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+.comment-bubble {
+  position: relative;
+  margin: 10px 0 0;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--bubble);
+  color: var(--text);
+  font-size: 0.9rem;
+  font-style: italic;
+  line-height: 1.35;
+}
+
+.comment-bubble::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 16px;
+  border: 6px solid transparent;
+  border-top: 0;
+  border-bottom-color: var(--bubble);
+}
+
+.comment-bubble.pending {
+  color: var(--muted);
+}
+
+#book-detail-content .comment-bubble {
+  margin-top: 14px;
 }
