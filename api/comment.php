@@ -169,6 +169,8 @@ TXT;
             $text .= $block['text'];
         }
     }
-    $text = trim($text, " \n\r\t\"“”„");
+    // Strip surrounding whitespace/quotes. Must be a /u regex: trim() works
+    // on bytes and would cut the multi-byte tail off a closing emoji.
+    $text = preg_replace('/^[\s"“”„«»]+|[\s"“”„«»]+$/u', '', $text) ?? '';
     return $text !== '' ? $text : null;
 }
