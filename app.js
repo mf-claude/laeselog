@@ -37,6 +37,7 @@
     detailWeekTarget: document.getElementById('detail-week-target'),
     detailProgressFill: document.getElementById('detail-progress-fill'),
     detailInspire: document.getElementById('detail-inspire'),
+    detailComment: document.getElementById('detail-comment'),
     detailBookProgress: document.getElementById('detail-book-progress'),
     detailBookCount: document.getElementById('detail-book-count'),
     detailBookLeft: document.getElementById('detail-book-left'),
@@ -55,6 +56,9 @@
   // none of the results fit, or there were none).
   let matchState = 'idle';
   let selectedMatch = null;
+
+  // Book whose comment is being written by Claude right now.
+  let pendingCommentId = null;
 
   async function api(path, options = {}) {
     const res = await fetch(API + path, {
@@ -194,7 +198,10 @@
     const targetPage = baseline + target;
     const progress = Math.min(1, pagesThisWeek / target);
     const isComplete = pagesThisWeek >= target;
-    return { pagesThisWeek, target, targetPage, progress, isComplete };
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+    const daysLeft = Math.ceil((weekEnd - new Date()) / (1000 * 60 * 60 * 24));
+    return { pagesThisWeek, target, targetPage, progress, isComplete, daysLeft };
   }
 
   function inspireMessage({ progress, isComplete }) {
@@ -211,6 +218,14 @@
     fillEl.style.width = `${stats.progress * 100}%`;
     fillEl.classList.toggle('complete', stats.isComplete);
     msgEl.textContent = inspireMessage(stats);
+  }
+
+  function renderComment(bubbleEl, book) {
+    const latest = book.comments[book.comments.length - 1];
+    const pending = pendingCommentId === book.id;
+    bubbleEl.hidden = !pending && !latest;
+    bubbleEl.classList.toggle('pending', pending);
+    bubbleEl.textContent = pending ? '💭 …' : latest?.text || '';
   }
 
   function renderBookProgress({ panelEl, countEl, leftEl, fillEl }, book) {
@@ -243,6 +258,7 @@
         <div class="book-card-body">
           <div class="title"></div>
           <div class="author"></div>
+          <div class="comment-bubble" hidden></div>
           <div class="progress-row">
             <span class="page"></span>
             <span class="updated"></span>
@@ -267,6 +283,7 @@
       renderCover(card.querySelector('.cover-img'), card.querySelector('.cover-placeholder'), book);
       card.querySelector('.title').textContent = book.title;
       card.querySelector('.author').textContent = book.author || '';
+      renderComment(card.querySelector('.comment-bubble'), book);
       card.querySelector('.page').textContent = pageLabel(book);
       card.querySelector('.updated').textContent = formatRelative(lastUpdate(book));
       renderWeekPanel({
@@ -466,6 +483,7 @@
     renderCover(el.detailCoverImg, el.detailCoverPlaceholder, book);
     el.detailTitle.textContent = book.title;
     el.detailAuthor.textContent = book.author || '';
+    renderComment(el.detailComment, book);
     el.detailPage.textContent = pageLabel(book);
     el.updatePageInput.value = book.currentPage;
     el.updateTargetInput.value = book.weeklyTarget;
@@ -506,11 +524,42 @@
         page: Number(el.updatePageInput.value),
       }),
     });
+    replaceBook(book);
+    requestComment(book);
+  });
+
+  function replaceBook(book) {
     const idx = books.findIndex((b) => b.id === book.id);
     if (idx !== -1) books[idx] = book;
     renderDetail();
     renderBooks();
-  });
+  }
+
+  // Ask Claude for a fresh comment on the new page count. Best-effort: on
+  // failure the previous comment (if any) just stays.
+  async function requestComment(book) {
+    const stats = weeklyStats(book);
+    pendingCommentId = book.id;
+    renderDetail();
+    renderBooks();
+    try {
+      const { book: updated } = await api('comment.php', {
+        method: 'POST',
+        body: JSON.stringify({
+          bookId: book.id,
+          pagesThisWeek: stats.pagesThisWeek,
+          weeklyTarget: stats.target,
+          daysLeftInWeek: stats.daysLeft,
+        }),
+      });
+      if (pendingCommentId === book.id) pendingCommentId = null;
+      replaceBook(updated);
+    } catch {
+      if (pendingCommentId === book.id) pendingCommentId = null;
+      renderDetail();
+      renderBooks();
+    }
+  }
 
   el.updateTargetForm.addEventListener('submit', async (e) => {
     e.preventDefault();

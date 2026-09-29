@@ -101,5 +101,7 @@ function normalize_book(array $book): array
         ? (int)$totalPages
         : null;
 
+    $book['comments'] = is_array($book['comments'] ?? null) ? $book['comments'] : [];
+
     return $book;
 }
