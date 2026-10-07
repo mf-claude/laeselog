@@ -7,6 +7,7 @@ on:
 jobs:
   cleanup:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Install lftp
         run: sudo apt-get update && sudo apt-get install -y lftp
@@ -27,6 +28,8 @@ jobs:
           # || true: closing a PR that never got a successful preview deploy
           # (folder never existed) shouldn't fail this job.
           lftp <<LFTP_SCRIPT || true
+          set net:timeout 20
+          set net:max-retries 3
           set sftp:auto-confirm yes
           open -u "$SFTP_USERNAME","$SFTP_PASSWORD" sftp://$SFTP_HOST:22
           rm -r "$REMOTE_DIR"

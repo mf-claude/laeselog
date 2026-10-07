@@ -14,6 +14,11 @@ BASE_URL="${BASE_URL%/}"
 COOKIE_JAR="$(mktemp)"
 trap 'rm -f "$COOKIE_JAR"' EXIT
 
+# A hanging connection must fail the check, not block the deploy job.
+curl() {
+  command curl --max-time 20 "$@"
+}
+
 pass=0
 fail=0
 

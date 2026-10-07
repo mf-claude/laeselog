@@ -5,12 +5,19 @@ on:
     branches:
       - 'feature/**'
 
+# A newer push to the same branch supersedes the running preview deploy.
+concurrency:
+  group: preview-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Default is 6 hours; a hanging connection must not eat the free minutes.
+    timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install lftp
         run: sudo apt-get update && sudo apt-get install -y lftp
@@ -40,6 +47,9 @@ jobs:
           REMOTE_DIR: webroots/www/laeselog/preview/${{ steps.branch.outputs.safe }}
         run: |
           lftp <<LFTP_SCRIPT
+          set cmd:fail-exit yes
+          set net:timeout 20
+          set net:max-retries 3
           set sftp:auto-confirm yes
           open -u "$SFTP_USERNAME","$SFTP_PASSWORD" sftp://$SFTP_HOST:22
           mkdir -p "$REMOTE_DIR"
@@ -54,7 +64,7 @@ jobs:
         env:
           PREVIEW_URL: ${{ secrets.SITE_BASE_URL }}/preview/${{ steps.branch.outputs.safe }}
         run: |
-          for i in $(seq 1 10); do
+          for _ in $(seq 1 10); do
             status=$(curl -sS --max-time 10 -o /dev/null -w '%{http_code}' "$PREVIEW_URL/" || echo 000)
             if [ "$status" = "200" ]; then
               echo "Preview is reachable (status $status)"
@@ -67,6 +77,7 @@ jobs:
           exit 1
 
       - name: Smoke test preview
+        timeout-minutes: 5
         env:
           PREVIEW_URL: ${{ secrets.SITE_BASE_URL }}/preview/${{ steps.branch.outputs.safe }}
           SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
