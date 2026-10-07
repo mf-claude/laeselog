@@ -10,6 +10,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Install lftp
+        timeout-minutes: 3
         run: sudo apt-get update && sudo apt-get install -y lftp
 
       - name: Compute preview folder name
