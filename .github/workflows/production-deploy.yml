@@ -3,13 +3,23 @@ name: Production deploy
 on:
   push:
     branches: [main]
+  # Manual fallback when a push event is delayed or lost on GitHub's side.
+  workflow_dispatch:
+
+# Deploys queue up instead of overlapping, and a running upload is never
+# cancelled halfway (which would leave a mix of old and new files live).
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Default is 6 hours; a hanging connection must not eat the free minutes.
+    timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install lftp
         run: sudo apt-get update && sudo apt-get install -y lftp
@@ -22,6 +32,9 @@ jobs:
           REMOTE_DIR: webroots/www/laeselog
         run: |
           lftp <<LFTP_SCRIPT
+          set cmd:fail-exit yes
+          set net:timeout 20
+          set net:max-retries 3
           set sftp:auto-confirm yes
           open -u "$SFTP_USERNAME","$SFTP_PASSWORD" sftp://$SFTP_HOST:22
           mirror --reverse --parallel=2 \
@@ -30,3 +43,20 @@ jobs:
             ./ "$REMOTE_DIR/"
           bye
           LFTP_SCRIPT
+
+      # Read-only on purpose: scripts/smoke-test.sh creates and deletes a book
+      # and calls the Anthropic API, which must not happen against real data.
+      - name: Check production
+        env:
+          SITE_URL: ${{ secrets.SITE_BASE_URL }}
+        run: |
+          for _ in $(seq 1 10); do
+            status=$(curl -sS --max-time 10 -o /dev/null -w '%{http_code}' "$SITE_URL/" || echo 000)
+            [ "$status" = "200" ] && break
+            echo "Production not ready yet (status $status), retrying in 3s..."
+            sleep 3
+          done
+          [ "$status" = "200" ] || { echo "Production never became reachable at $SITE_URL/"; exit 1; }
+          echo "ok   - front page reachable"
+          curl -sS --max-time 10 "$SITE_URL/api/session.php" | jq -e 'has("authenticated")' >/dev/null
+          echo "ok   - api/session.php answers"
