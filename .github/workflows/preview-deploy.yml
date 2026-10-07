@@ -20,6 +20,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install lftp
+        timeout-minutes: 3
         run: sudo apt-get update && sudo apt-get install -y lftp
 
       - name: Compute preview folder name
@@ -65,7 +66,7 @@ jobs:
           PREVIEW_URL: ${{ secrets.SITE_BASE_URL }}/preview/${{ steps.branch.outputs.safe }}
         run: |
           for _ in $(seq 1 10); do
-            status=$(curl -sS --max-time 10 -o /dev/null -w '%{http_code}' "$PREVIEW_URL/" || echo 000)
+            status=$(curl -sS --max-time 10 -o /dev/null -w '%{http_code}' "$PREVIEW_URL/" || true)
             if [ "$status" = "200" ]; then
               echo "Preview is reachable (status $status)"
               exit 0
