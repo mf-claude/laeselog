@@ -27,9 +27,13 @@ if ($method === 'POST') {
     $weeklyTarget = $body['weeklyTarget'] ?? DEFAULT_WEEKLY_TARGET;
     $coverUrl = $body['coverUrl'] ?? null;
     $totalPages = $body['totalPages'] ?? null;
+    $readerId = (string)($body['readerId'] ?? DEFAULT_READER);
 
     if ($title === '') {
         send_json(['error' => 'Title is required'], 422);
+    }
+    if (!is_reader($readerId)) {
+        send_json(['error' => 'Unknown reader'], 422);
     }
 
     $startPage = is_numeric($startPage) && (int)$startPage >= 0 ? (int)$startPage : 0;
@@ -42,6 +46,7 @@ if ($method === 'POST') {
     $now = date('c');
     $book = [
         'id' => generate_id(),
+        'readerId' => $readerId,
         'title' => $title,
         'author' => $author,
         'currentPage' => $startPage,
@@ -58,7 +63,7 @@ if ($method === 'POST') {
     $data['books'][] = $book;
     write_data($data);
 
-    send_json(['book' => $book], 201);
+    send_json(['book' => normalize_book($book)], 201);
 }
 
 if ($method === 'PATCH') {

@@ -5,6 +5,17 @@
     loginView: document.getElementById('login-view'),
     appView: document.getElementById('app-view'),
     logoutBtn: document.getElementById('logout-btn'),
+    greeting: document.getElementById('greeting'),
+    readerSwitch: document.getElementById('reader-switch'),
+    readerGoal: document.getElementById('reader-goal'),
+    goalCount: document.getElementById('goal-count'),
+    goalDays: document.getElementById('goal-days'),
+    goalFill: document.getElementById('goal-fill'),
+    goalInspire: document.getElementById('goal-inspire'),
+    goalForm: document.getElementById('goal-form'),
+    goalInput: document.getElementById('goal-input'),
+    goalHint: document.getElementById('goal-hint'),
+    newWeeklyTargetField: document.getElementById('new-weekly-target-field'),
     loginForm: document.getElementById('login-form'),
     passwordInput: document.getElementById('password-input'),
     loginError: document.getElementById('login-error'),
@@ -48,7 +59,11 @@
     closeDetailBtn: document.getElementById('close-detail-btn'),
   };
 
+  const READER_KEY = 'laeselog.reader';
+
   let books = [];
+  let readers = [];
+  let currentReaderId = loadSavedReader();
   let openBookId = null;
 
   // Add-book match flow: 'idle' (not searched yet), 'choosing' (results
@@ -77,7 +92,63 @@
     el.loginView.hidden = true;
     el.appView.hidden = false;
     el.logoutBtn.hidden = false;
-    loadBooks();
+    loadAll();
+  }
+
+  // The chosen reader is a per-device convenience; storage may be blocked.
+  function loadSavedReader() {
+    try {
+      return localStorage.getItem(READER_KEY);
+    } catch {
+      return null;
+    }
+  }
+
+  function saveReader(id) {
+    try {
+      localStorage.setItem(READER_KEY, id);
+    } catch {
+      // Not remembered; the app still works.
+    }
+  }
+
+  function currentReader() {
+    return readers.find((r) => r.id === currentReaderId) || readers[0];
+  }
+
+  function hasWeekGoal(reader = currentReader()) {
+    return reader?.goalMode === 'week';
+  }
+
+  function readerBooks(reader = currentReader()) {
+    return books.filter((b) => b.readerId === reader?.id);
+  }
+
+  function selectReader(id) {
+    currentReaderId = id;
+    saveReader(id);
+    renderReaders();
+    renderBooks();
+  }
+
+  function renderReaders() {
+    const reader = currentReader();
+    el.greeting.textContent = reader ? `Hej ${reader.name}` : '';
+    el.readerSwitch.innerHTML = '';
+    for (const r of readers) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.setAttribute('role', 'tab');
+      btn.setAttribute('aria-selected', String(r.id === reader?.id));
+      btn.textContent = r.name;
+      btn.addEventListener('click', () => selectReader(r.id));
+      el.readerSwitch.appendChild(btn);
+    }
+    // The goal input is only filled here, so a re-render while typing
+    // doesn't wipe what's been typed.
+    if (hasWeekGoal(reader)) {
+      el.goalInput.value = goalForWeek(reader).goal;
+    }
   }
 
   function showLogin() {
@@ -190,18 +261,63 @@
     return baseline;
   }
 
-  function weeklyStats(book) {
-    const weekStart = getWeekStart();
-    const baseline = pageAtWeekStart(book, weekStart);
-    const target = book.weeklyTarget || 30;
-    const pagesThisWeek = Math.max(0, book.currentPage - baseline);
-    const targetPage = baseline + target;
-    const progress = Math.min(1, pagesThisWeek / target);
-    const isComplete = pagesThisWeek >= target;
+  // Local-date key for a week, e.g. "2026-10-17" (its Saturday).
+  function weekKey(weekStart = getWeekStart()) {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${weekStart.getFullYear()}-${pad(weekStart.getMonth() + 1)}-${pad(weekStart.getDate())}`;
+  }
+
+  // A week without its own goal keeps the most recent earlier one.
+  function goalForWeek(reader, key = weekKey()) {
+    const goals = reader.weeklyGoals || {};
+    if (goals[key]) return { goal: goals[key], status: 'set' };
+    const earlier = Object.keys(goals).filter((k) => k < key).sort().pop();
+    if (earlier) return { goal: goals[earlier], status: 'carried' };
+    return { goal: 30, status: 'unset' };
+  }
+
+  function daysLeftInWeek(weekStart) {
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekEnd.getDate() + 7);
-    const daysLeft = Math.ceil((weekEnd - new Date()) / (1000 * 60 * 60 * 24));
-    return { pagesThisWeek, target, targetPage, progress, isComplete, daysLeft };
+    return Math.ceil((weekEnd - new Date()) / (1000 * 60 * 60 * 24));
+  }
+
+  function pagesReadThisWeek(book, weekStart) {
+    return Math.max(0, book.currentPage - pageAtWeekStart(book, weekStart));
+  }
+
+  function goalStats(pagesThisWeek, target, weekStart) {
+    return {
+      pagesThisWeek,
+      target,
+      progress: Math.min(1, pagesThisWeek / target),
+      isComplete: pagesThisWeek >= target,
+      daysLeft: daysLeftInWeek(weekStart),
+    };
+  }
+
+  function weeklyStats(book) {
+    const weekStart = getWeekStart();
+    const target = book.weeklyTarget || 30;
+    return {
+      ...goalStats(pagesReadThisWeek(book, weekStart), target, weekStart),
+      targetPage: pageAtWeekStart(book, weekStart) + target,
+    };
+  }
+
+  // Week totals across all of a 'week'-mode reader's books.
+  function readerWeekStats(reader) {
+    const weekStart = getWeekStart();
+    const pagesThisWeek = readerBooks(reader)
+      .reduce((sum, book) => sum + pagesReadThisWeek(book, weekStart), 0);
+    return goalStats(pagesThisWeek, goalForWeek(reader).goal, weekStart);
+  }
+
+  // What the comment prompt is told about the week: the book's own target,
+  // or the reader's goal across all books.
+  function commentWeekStats(book) {
+    const reader = readers.find((r) => r.id === book.readerId);
+    return hasWeekGoal(reader) ? readerWeekStats(reader) : weeklyStats(book);
   }
 
   function inspireMessage({ progress, isComplete }) {
@@ -212,6 +328,12 @@
   }
 
   function renderWeekPanel({ countEl, targetEl, fillEl, msgEl }, book) {
+    const countOnly = hasWeekGoal();
+    countEl.closest('.week-panel').classList.toggle('week-count-only', countOnly);
+    if (countOnly) {
+      countEl.textContent = `${pagesReadThisWeek(book, getWeekStart())} pages this week`;
+      return;
+    }
     const stats = weeklyStats(book);
     countEl.textContent = `${stats.pagesThisWeek} / ${stats.target} pages this week`;
     targetEl.textContent = `Target: page ${stats.targetPage}`;
@@ -242,11 +364,41 @@
     fillEl.classList.toggle('complete', pagesLeft === 0);
   }
 
-  function renderBooks() {
-    el.bookList.innerHTML = '';
-    el.emptyState.hidden = books.length > 0;
+  function formatDay(date) {
+    return date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  }
 
-    for (const book of books) {
+  function renderReaderGoal() {
+    const reader = currentReader();
+    el.readerGoal.hidden = !hasWeekGoal(reader);
+    if (el.readerGoal.hidden) return;
+
+    const stats = readerWeekStats(reader);
+    const { status } = goalForWeek(reader);
+    el.goalCount.textContent = `${stats.pagesThisWeek} / ${stats.target} pages this week`;
+    el.goalDays.textContent = stats.daysLeft === 1 ? '1 day left' : `${stats.daysLeft} days left`;
+    el.goalFill.style.width = `${stats.progress * 100}%`;
+    el.goalFill.classList.toggle('complete', stats.isComplete);
+    el.goalInspire.textContent = inspireMessage(stats);
+
+    const weekStart = getWeekStart();
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    const range = `${formatDay(weekStart)} – ${formatDay(weekEnd)}`;
+    el.goalHint.textContent = {
+      set: `Set for this week (${range})`,
+      carried: `Carried over from last week. Change it if this week (${range}) is different`,
+      unset: `No goal set yet. Pick one for this week (${range})`,
+    }[status];
+  }
+
+  function renderBooks() {
+    const visible = readerBooks();
+    renderReaderGoal();
+    el.bookList.innerHTML = '';
+    el.emptyState.hidden = visible.length > 0;
+
+    for (const book of visible) {
       const card = document.createElement('button');
       card.type = 'button';
       card.className = 'book-card';
@@ -309,6 +461,35 @@
     renderBooks();
   }
 
+  async function loadAll() {
+    const [readerData, bookData] = await Promise.all([api('readers.php'), api('books.php')]);
+    readers = readerData.readers;
+    books = bookData.books;
+    renderReaders();
+    renderBooks();
+  }
+
+  el.goalForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const submitBtn = el.goalForm.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    try {
+      const data = await api('readers.php', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          id: currentReader().id,
+          weekStart: weekKey(),
+          weeklyGoal: Number(el.goalInput.value),
+        }),
+      });
+      readers = data.readers;
+      renderReaders();
+      renderBooks();
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+
   function resetMatch() {
     matchState = 'idle';
     selectedMatch = null;
@@ -326,6 +507,7 @@
     el.addBookForm.reset();
     el.newStartPage.value = '0';
     el.newWeeklyTarget.value = '30';
+    el.newWeeklyTargetField.hidden = hasWeekGoal();
     resetMatch();
     el.addBookOverlay.hidden = false;
   });
@@ -455,6 +637,7 @@
       await api('books.php', {
         method: 'POST',
         body: JSON.stringify({
+          readerId: currentReader().id,
           title: el.newTitle.value.trim(),
           author: el.newAuthor.value.trim(),
           startPage: Number(el.newStartPage.value) || 0,
@@ -487,6 +670,7 @@
     el.detailPage.textContent = pageLabel(book);
     el.updatePageInput.value = book.currentPage;
     el.updateTargetInput.value = book.weeklyTarget;
+    el.updateTargetForm.hidden = hasWeekGoal();
     el.updateTotalInput.value = book.totalPages ?? '';
     renderWeekPanel({
       countEl: el.detailWeekCount,
@@ -538,7 +722,7 @@
   // Ask Claude for a fresh comment on the new page count. Best-effort: on
   // failure the previous comment (if any) just stays.
   async function requestComment(book) {
-    const stats = weeklyStats(book);
+    const stats = commentWeekStats(book);
     pendingCommentId = book.id;
     renderDetail();
     renderBooks();
