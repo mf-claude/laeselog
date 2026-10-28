@@ -192,6 +192,10 @@ button {
   display: block;
 }
 
+.cover-img[hidden] {
+  display: none;
+}
+
 .cover-placeholder {
   font-size: 1.4rem;
   color: var(--muted);
