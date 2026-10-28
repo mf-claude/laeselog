@@ -192,6 +192,10 @@ button {
   display: block;
 }
 
+.cover-img[hidden] {
+  display: none;
+}
+
 .cover-placeholder {
   font-size: 1.4rem;
   color: var(--muted);
@@ -481,4 +485,42 @@ button {
 
 #book-detail-content .comment-bubble {
   margin-top: 14px;
+}
+
+.reader-switch {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--border);
+  border-radius: 12px;
+}
+
+.reader-switch button {
+  flex: 1;
+  padding: 8px 12px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.reader-switch button[aria-selected="true"] {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.goal-hint {
+  font-size: 0.8rem;
+  margin: 8px 0 0;
+}
+
+#new-weekly-target-field label {
+  margin-top: 14px;
+}
+
+/* Readers with one goal across all books: a book's panel only counts pages,
+   the target and progress live in the goal panel above the list. */
+.week-panel.week-count-only > .progress-bar,
+.week-panel.week-count-only > .inspire-msg,
+.week-panel.week-count-only > .week-stats > .week-target {
+  display: none;
 }

@@ -15,7 +15,7 @@
   <div id="app">
     <header class="app-header">
       <h1>📚 Læselog</h1>
-      <p>Hej Isac</p>
+      <p id="greeting"></p>
       <button id="logout-btn" class="link-btn" hidden>Log out</button>
     </header>
 
@@ -29,6 +29,23 @@
     </section>
 
     <section id="app-view" hidden>
+      <div id="reader-switch" class="reader-switch" role="tablist" aria-label="Reader"></div>
+
+      <div id="reader-goal" class="card week-panel goal-panel" hidden>
+        <div class="week-stats">
+          <span id="goal-count" class="week-count"></span>
+          <span id="goal-days" class="week-target"></span>
+        </div>
+        <div class="progress-bar"><div id="goal-fill" class="progress-fill"></div></div>
+        <p id="goal-inspire" class="inspire-msg"></p>
+        <form id="goal-form" class="inline-form">
+          <label for="goal-input">This week's goal (pages, all books)</label>
+          <input type="number" id="goal-input" min="1" required inputmode="numeric">
+          <button type="submit" class="secondary-btn">Save goal</button>
+        </form>
+        <p id="goal-hint" class="muted goal-hint"></p>
+      </div>
+
       <div id="book-list"></div>
       <p id="empty-state" class="empty-state" hidden>No books yet. Add one to get started.</p>
       <button id="add-book-btn" class="fab" aria-label="Add book">+</button>
@@ -49,8 +66,10 @@
       <input type="number" id="new-total-pages" min="1" inputmode="numeric">
       <label for="new-start-page">Starting page</label>
       <input type="number" id="new-start-page" min="0" value="0" inputmode="numeric">
-      <label for="new-weekly-target">Weekly target (pages)</label>
-      <input type="number" id="new-weekly-target" min="1" value="30" inputmode="numeric">
+      <div id="new-weekly-target-field">
+        <label for="new-weekly-target">Weekly target (pages)</label>
+        <input type="number" id="new-weekly-target" min="1" value="30" inputmode="numeric">
+      </div>
       <div class="actions">
         <button type="button" id="cancel-add-book" class="secondary-btn">Cancel</button>
         <button type="submit" class="primary-btn">Add book</button>

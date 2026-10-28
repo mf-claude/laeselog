@@ -68,6 +68,29 @@ check "login response ok" "$(jq -r '.ok // false' <<<"$RESP_BODY")" "true"
 RESP=$(api GET session.php); split_status "$RESP"
 check "session status after login" "$(jq -r '.authenticated' <<<"$RESP_BODY")" "true"
 
+RESP=$(api GET readers.php); split_status "$RESP"
+check "readers status" "$STATUS" "200"
+check "readers list" "$(jq -r '[.readers[] | "\(.id):\(.goalMode)"] | join(",")' <<<"$RESP_BODY")" "isac:book,johannes:week"
+
+# Goal writes are only checked for rejection, so no stray goal is left
+# behind to carry over into real weeks.
+RESP=$(api PATCH readers.php '{"id":"johannes","weekStart":"2026-10-23","weeklyGoal":50}'); split_status "$RESP"
+check "goal rejects non-Saturday week" "$STATUS" "422"
+RESP=$(api PATCH readers.php '{"id":"isac","weekStart":"2026-10-17","weeklyGoal":50}'); split_status "$RESP"
+check "goal rejects per-book reader" "$STATUS" "422"
+
+J_TITLE="Smoke Test Johannes Book $(date +%s)"
+RESP=$(api POST books.php "$(jq -n --arg t "$J_TITLE" '{title:$t, readerId:"johannes"}')"); split_status "$RESP"
+check "create johannes book status" "$STATUS" "201"
+check "johannes book reader" "$(jq -r '.book.readerId' <<<"$RESP_BODY")" "johannes"
+J_BOOK_ID=$(jq -r '.book.id // empty' <<<"$RESP_BODY")
+if [ -n "$J_BOOK_ID" ]; then
+  RESP=$(api DELETE "books.php?id=$J_BOOK_ID"); split_status "$RESP"
+  check "delete johannes book status" "$STATUS" "200"
+fi
+RESP=$(api POST books.php '{"title":"Nobody","readerId":"nobody"}'); split_status "$RESP"
+check "create book rejects unknown reader" "$STATUS" "422"
+
 TITLE="Smoke Test Book $(date +%s)"
 RESP=$(api POST books.php "$(jq -n --arg t "$TITLE" '{title:$t, author:"CI", startPage:5}')"); split_status "$RESP"
 check "create book status" "$STATUS" "201"
@@ -85,6 +108,9 @@ RESP=$(api GET books.php); split_status "$RESP"
 check "created book appears in list" \
   "$(jq -r --arg id "$BOOK_ID" '.books[] | select(.id==$id) | .title' <<<"$RESP_BODY")" \
   "$TITLE"
+check "book without reader belongs to isac" \
+  "$(jq -r --arg id "$BOOK_ID" '.books[] | select(.id==$id) | .readerId' <<<"$RESP_BODY")" \
+  "isac"
 
 RESP=$(api POST entries.php "$(jq -n --arg id "$BOOK_ID" '{bookId:$id, page:42}')"); split_status "$RESP"
 check "update page status" "$STATUS" "200"

@@ -39,7 +39,8 @@ if ($book === null) {
     send_json(['error' => 'Book not found'], 404);
 }
 
-$text = generate_comment($key, $book, $week);
+$reader = READERS[$book['readerId']];
+$text = generate_comment($key, $book, $week, $reader);
 if ($text === null) {
     send_json(['error' => 'Could not generate a comment'], 502);
 }
@@ -65,7 +66,7 @@ if ($updatedBook === null) {
 write_data($data);
 send_json(['book' => $updatedBook]);
 
-function build_prompt(array $book, array $week): string
+function build_prompt(array $book, array $week, array $reader): string
 {
     $history = $book['history'];
     $previousPage = count($history) >= 2 ? $history[count($history) - 2]['page'] : null;
@@ -85,7 +86,9 @@ function build_prompt(array $book, array $week): string
     } else {
         $lines[] = 'Det er første registrering for denne bog.';
     }
-    $lines[] = "Ugens mål: {$week['target']} sider. Læst i denne uge: {$week['pagesThisWeek']} sider."
+    // A 'week'-mode reader's goal and count span all of his books.
+    $scope = $reader['goalMode'] === 'week' ? ' (samlet i alle hans bøger)' : '';
+    $lines[] = "Ugens mål: {$week['target']} sider$scope. Læst i denne uge: {$week['pagesThisWeek']} sider$scope."
         . ($weekLeft > 0
             ? " Mangler $weekLeft sider, og der er {$week['daysLeft']} dag(e) tilbage af læseugen (lørdag–fredag)."
             : ' Ugens mål er nået!');
@@ -99,26 +102,26 @@ function build_prompt(array $book, array $week): string
     return implode("\n", $lines);
 }
 
-function generate_comment(string $key, array $book, array $week): ?string
+function generate_comment(string $key, array $book, array $week, array $reader): ?string
 {
-    $system = <<<'TXT'
-Du skriver korte kommentarer i en læseapp til Isac, en dansk dreng på 13-15 år. Hver gang han registrerer, hvor langt han er nået i en bog, får han én kommentar på kortet for bogen. Formålet er, at han får lyst til at læse mere og har det sjovt imens.
+    $system = str_replace('{name}', $reader['name'], <<<'TXT'
+Du skriver korte kommentarer i en læseapp til {name}, en dansk dreng på 13-15 år. Hver gang han registrerer, hvor langt han er nået i en bog, får han én kommentar på kortet for bogen. Formålet er, at han får lyst til at læse mere og har det sjovt imens.
 
 Kommentaren skal:
 - være på dansk, 1-3 korte sætninger (højst ca. 40 ord)
 - være positiv, sjov eller kækt drillende, i en tone der passer til en teenager, gerne tør humor, aldrig barnlig eller belærende
-- høre hjemme i bogens univers. Skift mellem forskellige vinkler, for eksempel: hovedpersonen (eller en anden figur) der taler direkte til Isac med sin egen stemme, en sjov fakta om bogen, forfatteren eller universet, eller en drillende udfordring
+- høre hjemme i bogens univers. Skift mellem forskellige vinkler, for eksempel: hovedpersonen (eller en anden figur) der taler direkte til {name} med sin egen stemme, en sjov fakta om bogen, forfatteren eller universet, eller en drillende udfordring
 - gerne flette hans fremskridt ind: hvor langt han er i bogen, hvor tæt han er på ugens mål, eller en opfordring til at læse lidt mere
 - være ny: brug ikke de samme vittigheder, pointer eller vendinger som i de tidligere kommentarer
 
 Regler:
-- Ingen spoilers. Nævn ikke noget, der sker senere i bogen end der, hvor Isac er nået til.
+- Ingen spoilers. Nævn ikke noget, der sker senere i bogen end der, hvor {name} er nået til.
 - Brug kun detaljer om bogen, som du er sikker på passer. Kender du ikke bogen godt, så hold dig til titlen, genren og hans fremskridt frem for at opdigte figurer eller handling.
 - Hvis han ikke har læst noget siden sidst, må du gerne drille venligt, men uden at skælde ud.
 - Højst én emoji.
 
 Svar kun med selve kommentaren, uden anførselstegn eller forklaring.
-TXT;
+TXT);
 
     $payload = [
         'model' => COMMENT_MODEL,
@@ -131,7 +134,7 @@ TXT;
         'fallbacks' => 'default',
         'system' => $system,
         'messages' => [
-            ['role' => 'user', 'content' => build_prompt($book, $week)],
+            ['role' => 'user', 'content' => build_prompt($book, $week, $reader)],
         ],
     ];
 
