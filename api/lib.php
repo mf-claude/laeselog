@@ -5,6 +5,7 @@ require __DIR__ . '/config.php';
 
 define('DATA_FILE', __DIR__ . '/data.json');
 define('DEFAULT_WEEKLY_TARGET', 30);
+define('CLAUDE_MODEL', 'claude-opus-5-5');
 
 // Who can log reading. goalMode 'book' means each book has its own fixed
 // weekly target; 'week' means one goal per reading week, counted across all
@@ -128,6 +129,11 @@ function normalize_book(array $book): array
 
     $book['comments'] = is_array($book['comments'] ?? null) ? $book['comments'] : [];
 
+    // Only the question text may reach the browser: the stored expected
+    // answer stays on the server, so it can't be read before answering.
+    $pending = $book['pendingQuestion'] ?? null;
+    $book['pendingQuestion'] = is_array($pending) ? ['text' => $pending['text']] : null;
+
     return $book;
 }
 
@@ -153,4 +159,70 @@ function list_readers(array $data): array
         ];
     }
     return $readers;
+}
+
+function anthropic_key(): string
+{
+    return defined('ANTHROPIC_API_KEY') ? (string)ANTHROPIC_API_KEY : '';
+}
+
+// One Messages API call. $params holds 'system' and 'messages'; with a
+// $schema the reply is constrained to that JSON. Returns the reply's text,
+// or null if there is none.
+function call_claude(string $key, array $params, string $effort = 'low', ?array $schema = null): ?string
+{
+    $payload = $params + [
+        'model' => CLAUDE_MODEL,
+        'max_tokens' => 4000,
+        'thinking' => ['type' => 'adaptive'],
+        'output_config' => ['effort' => $effort],
+        // If a safety classifier ever declines, let the API retry on its
+        // recommended fallback model instead of returning nothing.
+        'fallbacks' => 'default',
+    ];
+    if ($schema !== null) {
+        $payload['output_config']['format'] = ['type' => 'json_schema', 'schema' => $schema];
+    }
+
+    $ch = curl_init('https://api.anthropic.com/v1/messages');
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 45,
+        CURLOPT_CONNECTTIMEOUT => 5,
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/json',
+            'x-api-key: ' . $key,
+            'anthropic-version: 2023-06-01',
+            'anthropic-beta: server-side-fallback-2026-07-01',
+        ],
+        CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
+    ]);
+    $raw = curl_exec($ch);
+    $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+    if ($raw === false || $status !== 200) {
+        error_log("laeselog: Anthropic API returned $status: " . substr((string)$raw, 0, 500));
+        return null;
+    }
+
+    $response = json_decode((string)$raw, true);
+    if (!is_array($response) || ($response['stop_reason'] ?? '') === 'refusal') {
+        return null;
+    }
+
+    $text = '';
+    foreach ($response['content'] ?? [] as $block) {
+        if (($block['type'] ?? '') === 'text') {
+            $text .= $block['text'];
+        }
+    }
+    return $text !== '' ? $text : null;
+}
+
+function call_claude_json(string $key, array $params, string $effort, array $schema): ?array
+{
+    $text = call_claude($key, $params, $effort, $schema);
+    $reply = $text === null ? null : json_decode($text, true);
+    return is_array($reply) ? $reply : null;
 }

@@ -85,7 +85,8 @@ label:first-of-type {
 
 input[type="text"],
 input[type="password"],
-input[type="number"] {
+input[type="number"],
+textarea {
   width: 100%;
   font-size: 1rem;
   padding: 12px;
@@ -258,6 +259,7 @@ button {
 .week-stats {
   display: flex;
   justify-content: space-between;
+  gap: 8px;
   align-items: baseline;
   font-size: 0.85rem;
 }
@@ -269,6 +271,7 @@ button {
 
 .week-target {
   color: var(--muted);
+  white-space: nowrap;
 }
 
 .progress-bar {
@@ -523,4 +526,58 @@ button {
 .week-panel.week-count-only > .inspire-msg,
 .week-panel.week-count-only > .week-stats > .week-target {
   display: none;
+}
+
+textarea {
+  display: block;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.question-panel {
+  margin: 12px 0;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--bubble);
+}
+
+.question-panel.pending .question-text {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.question-text {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.question-panel label {
+  margin-top: 10px;
+}
+
+.question-panel .actions .primary-btn {
+  margin-top: 0;
+}
+
+.answered {
+  margin-top: 12px;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.answered p {
+  margin: 0;
+}
+
+.answered-question {
+  color: var(--muted);
+}
+
+.answered p + p {
+  margin-top: 6px;
+}
+
+.answered-feedback {
+  font-weight: 600;
 }

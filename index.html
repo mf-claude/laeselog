@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="da">
 <head>
   <meta charset="utf-8">
   <title>Læselog</title>
@@ -16,20 +16,20 @@
     <header class="app-header">
       <h1>📚 Læselog</h1>
       <p id="greeting"></p>
-      <button id="logout-btn" class="link-btn" hidden>Log out</button>
+      <button id="logout-btn" class="link-btn" hidden>Log ud</button>
     </header>
 
     <section id="login-view">
       <form id="login-form" class="card">
-        <label for="password-input">Password</label>
+        <label for="password-input">Adgangskode</label>
         <input type="password" id="password-input" autocomplete="current-password" required>
-        <button type="submit" class="primary-btn">Log in</button>
+        <button type="submit" class="primary-btn">Log ind</button>
         <p id="login-error" class="error" hidden></p>
       </form>
     </section>
 
     <section id="app-view" hidden>
-      <div id="reader-switch" class="reader-switch" role="tablist" aria-label="Reader"></div>
+      <div id="reader-switch" class="reader-switch" role="tablist" aria-label="Læser"></div>
 
       <div id="reader-goal" class="card week-panel goal-panel" hidden>
         <div class="week-stats">
@@ -39,40 +39,40 @@
         <div class="progress-bar"><div id="goal-fill" class="progress-fill"></div></div>
         <p id="goal-inspire" class="inspire-msg"></p>
         <form id="goal-form" class="inline-form">
-          <label for="goal-input">This week's goal (pages, all books)</label>
+          <label for="goal-input">Ugens mål (sider, alle bøger)</label>
           <input type="number" id="goal-input" min="1" required inputmode="numeric">
-          <button type="submit" class="secondary-btn">Save goal</button>
+          <button type="submit" class="secondary-btn">Gem mål</button>
         </form>
         <p id="goal-hint" class="muted goal-hint"></p>
       </div>
 
       <div id="book-list"></div>
-      <p id="empty-state" class="empty-state" hidden>No books yet. Add one to get started.</p>
-      <button id="add-book-btn" class="fab" aria-label="Add book">+</button>
+      <p id="empty-state" class="empty-state" hidden>Ingen bøger endnu. Tilføj en for at komme i gang.</p>
+      <button id="add-book-btn" class="fab" aria-label="Tilføj bog">+</button>
     </section>
   </div>
 
   <div id="add-book-overlay" class="overlay" hidden>
     <form id="add-book-form" class="card">
-      <h2>New book</h2>
-      <label for="new-title">Title</label>
+      <h2>Ny bog</h2>
+      <label for="new-title">Titel</label>
       <input type="text" id="new-title" required autocomplete="off">
-      <label for="new-author">Author (optional)</label>
+      <label for="new-author">Forfatter (valgfri)</label>
       <input type="text" id="new-author" autocomplete="off">
-      <button type="button" id="find-book-btn" class="secondary-btn find-book-btn">🔍 Find book</button>
+      <button type="button" id="find-book-btn" class="secondary-btn find-book-btn">🔍 Find bogen</button>
       <p id="match-status" class="match-status" hidden></p>
       <div id="match-results" class="match-results" hidden></div>
-      <label for="new-total-pages">Pages in book (optional)</label>
+      <label for="new-total-pages">Sider i bogen (valgfri)</label>
       <input type="number" id="new-total-pages" min="1" inputmode="numeric">
-      <label for="new-start-page">Starting page</label>
+      <label for="new-start-page">Startside</label>
       <input type="number" id="new-start-page" min="0" value="0" inputmode="numeric">
       <div id="new-weekly-target-field">
-        <label for="new-weekly-target">Weekly target (pages)</label>
+        <label for="new-weekly-target">Ugemål (sider)</label>
         <input type="number" id="new-weekly-target" min="1" value="30" inputmode="numeric">
       </div>
       <div class="actions">
-        <button type="button" id="cancel-add-book" class="secondary-btn">Cancel</button>
-        <button type="submit" class="primary-btn">Add book</button>
+        <button type="button" id="cancel-add-book" class="secondary-btn">Annuller</button>
+        <button type="submit" class="primary-btn">Tilføj bog</button>
       </div>
     </form>
   </div>
@@ -89,6 +89,24 @@
           <p id="detail-author" class="muted"></p>
           <p id="detail-page" class="detail-page"></p>
         </div>
+      </div>
+
+      <div id="question-panel" class="question-panel" hidden>
+        <p id="question-text" class="question-text"></p>
+        <form id="question-form">
+          <label for="question-answer">Dit svar</label>
+          <textarea id="question-answer" rows="3" maxlength="1000" required></textarea>
+          <p id="question-error" class="error" hidden></p>
+          <div class="actions">
+            <button type="button" id="question-skip" class="secondary-btn">Spring over</button>
+            <button type="submit" class="primary-btn">Send svar</button>
+          </div>
+        </form>
+      </div>
+
+      <div id="detail-answered" class="answered" hidden>
+        <p id="detail-answered-question" class="answered-question"></p>
+        <p id="detail-feedback" class="answered-feedback"></p>
       </div>
 
       <p id="detail-comment" class="comment-bubble" hidden></p>
@@ -110,29 +128,29 @@
       </div>
 
       <form id="update-page-form">
-        <label for="update-page-input">New page</label>
+        <label for="update-page-input">Ny side</label>
         <input type="number" id="update-page-input" min="0" required inputmode="numeric">
-        <button type="submit" class="primary-btn">Update page</button>
+        <button type="submit" class="primary-btn">Opdater side</button>
       </form>
 
       <form id="update-target-form" class="inline-form">
-        <label for="update-target-input">Weekly target (pages)</label>
+        <label for="update-target-input">Ugemål (sider)</label>
         <input type="number" id="update-target-input" min="1" required inputmode="numeric">
-        <button type="submit" class="secondary-btn">Save target</button>
+        <button type="submit" class="secondary-btn">Gem ugemål</button>
       </form>
 
       <form id="update-total-form" class="inline-form">
-        <label for="update-total-input">Pages in book</label>
-        <input type="number" id="update-total-input" min="1" inputmode="numeric" placeholder="Unknown">
-        <button type="submit" class="secondary-btn">Save pages</button>
+        <label for="update-total-input">Sider i bogen</label>
+        <input type="number" id="update-total-input" min="1" inputmode="numeric" placeholder="Ukendt">
+        <button type="submit" class="secondary-btn">Gem sider</button>
       </form>
 
-      <h3>History</h3>
+      <h3>Historik</h3>
       <ul id="detail-history" class="history-list"></ul>
 
       <div class="actions">
-        <button type="button" id="delete-book-btn" class="danger-btn">Delete book</button>
-        <button type="button" id="close-detail-btn" class="secondary-btn">Close</button>
+        <button type="button" id="delete-book-btn" class="danger-btn">Slet bog</button>
+        <button type="button" id="close-detail-btn" class="secondary-btn">Luk</button>
       </div>
     </div>
   </div>

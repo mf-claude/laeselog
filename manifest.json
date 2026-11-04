@@ -1,5 +1,6 @@
 {
   "name": "Læselog",
+  "lang": "da",
   "short_name": "Læselog",
   "start_url": "./index.html",
   "display": "standalone",
