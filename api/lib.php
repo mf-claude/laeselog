@@ -6,6 +6,16 @@ require __DIR__ . '/config.php';
 define('DATA_FILE', __DIR__ . '/data.json');
 define('DEFAULT_WEEKLY_TARGET', 30);
 
+// Who can log reading. goalMode 'book' means each book has its own fixed
+// weekly target; 'week' means one goal per reading week, counted across all
+// of the reader's books, which may change from week to week.
+const READERS = [
+    'isac' => ['name' => 'Isac', 'goalMode' => 'book'],
+    'johannes' => ['name' => 'Johannes', 'goalMode' => 'week'],
+];
+// Books from before there were several readers are Isac's.
+const DEFAULT_READER = 'isac';
+
 function start_session(): void
 {
     if (session_status() === PHP_SESSION_NONE) {
@@ -93,8 +103,16 @@ function generate_id(): string
     return bin2hex(random_bytes(8));
 }
 
+function is_reader(string $id): bool
+{
+    return array_key_exists($id, READERS);
+}
+
 function normalize_book(array $book): array
 {
+    $reader = $book['readerId'] ?? null;
+    $book['readerId'] = is_string($reader) && is_reader($reader) ? $reader : DEFAULT_READER;
+
     $target = $book['weeklyTarget'] ?? null;
     $book['weeklyTarget'] = is_numeric($target) && (int)$target > 0
         ? (int)$target
@@ -111,4 +129,28 @@ function normalize_book(array $book): array
     $book['comments'] = is_array($book['comments'] ?? null) ? $book['comments'] : [];
 
     return $book;
+}
+
+// Weekly goals for 'week'-mode readers, keyed by the Saturday (YYYY-MM-DD)
+// the reading week starts on.
+function reader_goals(array $data, string $readerId): array
+{
+    $goals = $data['weeklyGoals'][$readerId] ?? [];
+    if (!is_array($goals)) {
+        return [];
+    }
+    ksort($goals);
+    return array_map('intval', $goals);
+}
+
+function list_readers(array $data): array
+{
+    $readers = [];
+    foreach (READERS as $id => $reader) {
+        $readers[] = $reader + [
+            'id' => $id,
+            'weeklyGoals' => (object)reader_goals($data, $id),
+        ];
+    }
+    return $readers;
 }

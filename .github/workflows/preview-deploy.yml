@@ -53,7 +53,12 @@ jobs:
           set net:max-retries 3
           set sftp:auto-confirm yes
           open -u "$SFTP_USERNAME","$SFTP_PASSWORD" sftp://$SFTP_HOST:22
+          # The server reports mkdir on an existing folder as a failure, so a
+          # second push to a branch would abort here. mirror still fails the
+          # step if the folder really can't be created.
+          set cmd:fail-exit no
           mkdir -p "$REMOTE_DIR"
+          set cmd:fail-exit yes
           mirror --reverse --parallel=2 \
             --exclude-glob .git/ \
             --exclude-glob .github/ \
