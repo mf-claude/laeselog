@@ -49,6 +49,15 @@
     detailProgressFill: document.getElementById('detail-progress-fill'),
     detailInspire: document.getElementById('detail-inspire'),
     detailComment: document.getElementById('detail-comment'),
+    questionPanel: document.getElementById('question-panel'),
+    questionText: document.getElementById('question-text'),
+    questionForm: document.getElementById('question-form'),
+    questionAnswer: document.getElementById('question-answer'),
+    questionError: document.getElementById('question-error'),
+    questionSkip: document.getElementById('question-skip'),
+    detailAnswered: document.getElementById('detail-answered'),
+    detailAnsweredQuestion: document.getElementById('detail-answered-question'),
+    detailFeedback: document.getElementById('detail-feedback'),
     detailBookProgress: document.getElementById('detail-book-progress'),
     detailBookCount: document.getElementById('detail-book-count'),
     detailBookLeft: document.getElementById('detail-book-left'),
@@ -74,6 +83,9 @@
 
   // Book whose comment is being written by Claude right now.
   let pendingCommentId = null;
+
+  // Book whose question is being written by Claude right now.
+  let pendingQuestionId = null;
 
   async function api(path, options = {}) {
     const res = await fetch(API + path, {
@@ -666,7 +678,7 @@
     renderCover(el.detailCoverImg, el.detailCoverPlaceholder, book);
     el.detailTitle.textContent = book.title;
     el.detailAuthor.textContent = book.author || '';
-    renderComment(el.detailComment, book);
+    renderQuestion(book);
     el.detailPage.textContent = pageLabel(book);
     el.updatePageInput.value = book.currentPage;
     el.updateTargetInput.value = book.weeklyTarget;
@@ -699,8 +711,33 @@
     }
   }
 
+  // The question panel takes the place of the feedback and comment until
+  // it's answered or skipped.
+  function renderQuestion(book) {
+    const loading = pendingQuestionId === book.id;
+    const asking = !loading && book.pendingQuestion && pendingCommentId !== book.id;
+    const showPanel = loading || Boolean(asking);
+
+    el.questionPanel.hidden = !showPanel;
+    el.questionPanel.classList.toggle('pending', loading);
+    el.questionText.textContent = loading ? '🤔 Thinking of a question…' : book.pendingQuestion?.text || '';
+    el.questionForm.hidden = loading;
+
+    const latest = book.comments[book.comments.length - 1];
+    const answered = !showPanel && pendingCommentId !== book.id && latest?.feedback;
+    el.detailAnswered.hidden = !answered;
+    if (answered) {
+      el.detailAnsweredQuestion.textContent = latest.question;
+      el.detailFeedback.textContent = latest.feedback;
+    }
+
+    renderComment(el.detailComment, book);
+    if (showPanel) el.detailComment.hidden = true;
+  }
+
   el.updatePageForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const previousPage = books.find((b) => b.id === openBookId)?.currentPage ?? 0;
     const { book } = await api('entries.php', {
       method: 'POST',
       body: JSON.stringify({
@@ -709,7 +746,11 @@
       }),
     });
     replaceBook(book);
-    requestComment(book);
+    if (book.currentPage > previousPage) {
+      requestQuestion(book);
+    } else {
+      requestComment(book);
+    }
   });
 
   function replaceBook(book) {
@@ -719,9 +760,52 @@
     renderBooks();
   }
 
-  // Ask Claude for a fresh comment on the new page count. Best-effort: on
-  // failure the previous comment (if any) just stays.
-  async function requestComment(book) {
+  // Ask Claude for a question on the pages just read. Best-effort: on
+  // failure it goes straight to the comment, as if there were no question.
+  async function requestQuestion(book) {
+    el.questionAnswer.value = '';
+    el.questionError.hidden = true;
+    pendingQuestionId = book.id;
+    renderDetail();
+    el.questionPanel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    try {
+      const { book: updated } = await api('question.php', {
+        method: 'POST',
+        body: JSON.stringify({ bookId: book.id }),
+      });
+      if (pendingQuestionId === book.id) pendingQuestionId = null;
+      replaceBook(updated);
+    } catch {
+      if (pendingQuestionId === book.id) pendingQuestionId = null;
+      requestComment(book);
+    }
+  }
+
+  el.questionForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const book = books.find((b) => b.id === openBookId);
+    const answer = el.questionAnswer.value.trim();
+    if (!book || !answer) return;
+    el.questionError.hidden = true;
+    const ok = await requestComment(book, answer);
+    if (ok) {
+      el.questionAnswer.value = '';
+    } else {
+      // The question is still pending on the server, so nothing is lost.
+      el.questionError.textContent = 'Could not send your answer. Try again, or skip.';
+      el.questionError.hidden = false;
+    }
+  });
+
+  el.questionSkip.addEventListener('click', () => {
+    const book = books.find((b) => b.id === openBookId);
+    if (book) requestComment(book);
+  });
+
+  // Ask Claude for a fresh comment on the new page count, with feedback if
+  // there's an answer to a question. Best-effort: on failure the previous
+  // comment (if any) just stays. Returns whether it worked.
+  async function requestComment(book, answer = null) {
     const stats = commentWeekStats(book);
     pendingCommentId = book.id;
     renderDetail();
@@ -734,14 +818,17 @@
           pagesThisWeek: stats.pagesThisWeek,
           weeklyTarget: stats.target,
           daysLeftInWeek: stats.daysLeft,
+          answer,
         }),
       });
       if (pendingCommentId === book.id) pendingCommentId = null;
       replaceBook(updated);
+      return true;
     } catch {
       if (pendingCommentId === book.id) pendingCommentId = null;
       renderDetail();
       renderBooks();
+      return false;
     }
   }
 

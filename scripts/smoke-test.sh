@@ -130,6 +130,40 @@ else
   echo "info - comment: $(jq -r '.book.comments[-1].text // "(none)"' <<<"$RESP_BODY")"
 fi
 
+# Questions need the same key. Uses a well-known book so the logged question
+# and feedback show how Claude handles a book it knows, and checks that the
+# expected answer never reaches the browser. Only the reply's shape is asserted.
+RESP=$(api POST books.php '{"title":"Harry Potter og De Vises Sten","author":"J.K. Rowling","startPage":40,"totalPages":300}'); split_status "$RESP"
+Q_BOOK_ID=$(jq -r '.book.id // empty' <<<"$RESP_BODY")
+api POST entries.php "$(jq -n --arg id "$Q_BOOK_ID" '{bookId:$id, page:70}')" >/dev/null
+START=$(date +%s)
+RESP=$(api POST question.php "$(jq -n --arg id "$Q_BOOK_ID" '{bookId:$id}')"); split_status "$RESP"
+if [ "$STATUS" = "503" ]; then
+  echo "info - questions not configured (no ANTHROPIC_API_KEY), skipping"
+else
+  check "question status" "$STATUS" "200"
+  echo "info - question ($(( $(date +%s) - START ))s): $(jq -r '.book.pendingQuestion.text // "(none)"' <<<"$RESP_BODY")"
+  check "expected answer stays on the server" "$(jq -r '.book.pendingQuestion | has("expectedAnswer")' <<<"$RESP_BODY")" "false"
+
+  RESP=$(api GET books.php); split_status "$RESP"
+  check "pending question survives a reload" \
+    "$(jq -r --arg id "$Q_BOOK_ID" '.books[] | select(.id==$id) | .pendingQuestion | has("text")' <<<"$RESP_BODY")" "true"
+
+  START=$(date +%s)
+  RESP=$(api POST comment.php "$(jq -n --arg id "$Q_BOOK_ID" '{bookId:$id, pagesThisWeek:30, weeklyTarget:30, daysLeftInWeek:3, answer:"Det ved jeg ikke helt"}')"); split_status "$RESP"
+  check "answer status" "$STATUS" "200"
+  echo "info - feedback ($(( $(date +%s) - START ))s): $(jq -r '.book.comments[-1].feedback // "(none)"' <<<"$RESP_BODY")"
+  echo "info - comment: $(jq -r '.book.comments[-1].text // "(none)"' <<<"$RESP_BODY")"
+  check "answering closes the question" "$(jq -r '.book.pendingQuestion' <<<"$RESP_BODY")" "null"
+fi
+if [ -n "$Q_BOOK_ID" ]; then
+  api DELETE "books.php?id=$Q_BOOK_ID" >/dev/null
+fi
+RESP=$(api POST question.php '{"bookId":"nope"}'); split_status "$RESP"
+if [ "$STATUS" != "503" ]; then
+  check "question rejects unknown book" "$STATUS" "404"
+fi
+
 # Lookup depends on external APIs, so only check that the endpoint answers
 # with a results array — not what it finds.
 RESP=$(api GET "lookup.php?title=Vitello"); split_status "$RESP"

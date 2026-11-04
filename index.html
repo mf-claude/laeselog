@@ -91,6 +91,24 @@
         </div>
       </div>
 
+      <div id="question-panel" class="question-panel" hidden>
+        <p id="question-text" class="question-text"></p>
+        <form id="question-form">
+          <label for="question-answer">Your answer</label>
+          <textarea id="question-answer" rows="3" maxlength="1000" required></textarea>
+          <p id="question-error" class="error" hidden></p>
+          <div class="actions">
+            <button type="button" id="question-skip" class="secondary-btn">Skip</button>
+            <button type="submit" class="primary-btn">Send answer</button>
+          </div>
+        </form>
+      </div>
+
+      <div id="detail-answered" class="answered" hidden>
+        <p id="detail-answered-question" class="answered-question"></p>
+        <p id="detail-feedback" class="answered-feedback"></p>
+      </div>
+
       <p id="detail-comment" class="comment-bubble" hidden></p>
 
       <div class="week-panel">
