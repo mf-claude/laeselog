@@ -18,4 +18,4 @@ if (is_string($password) && $password !== '' && hash_equals(SITE_PASSWORD, $pass
     send_json(['ok' => true]);
 }
 
-send_json(['error' => 'Invalid password'], 401);
+send_json(['error' => 'Forkert adgangskode'], 401);

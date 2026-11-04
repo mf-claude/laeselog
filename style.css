@@ -259,6 +259,7 @@ button {
 .week-stats {
   display: flex;
   justify-content: space-between;
+  gap: 8px;
   align-items: baseline;
   font-size: 0.85rem;
 }
@@ -270,6 +271,7 @@ button {
 
 .week-target {
   color: var(--muted);
+  white-space: nowrap;
 }
 
 .progress-bar {

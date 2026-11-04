@@ -69,6 +69,7 @@
   };
 
   const READER_KEY = 'laeselog.reader';
+  const LOCALE = 'da-DK';
 
   let books = [];
   let readers = [];
@@ -95,7 +96,7 @@
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      throw new Error(data.error || 'Request failed');
+      throw new Error(data.error || 'Noget gik galt');
     }
     return data;
   }
@@ -209,22 +210,26 @@
     const diffMs = now - date;
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    if (diffDays <= 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays} days ago`;
-    return date.toLocaleDateString();
+    if (diffDays <= 0) return 'I dag';
+    if (diffDays === 1) return 'I går';
+    if (diffDays < 7) return `${diffDays} dage siden`;
+    return date.toLocaleDateString(LOCALE);
   }
 
   function formatFull(iso) {
     const date = new Date(iso);
-    return date.toLocaleDateString(undefined, {
+    return date.toLocaleDateString(LOCALE, {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
-    }) + ' ' + date.toLocaleTimeString(undefined, {
+    }) + ' ' + date.toLocaleTimeString(LOCALE, {
       hour: '2-digit',
       minute: '2-digit',
     });
+  }
+
+  function pagesText(count) {
+    return count === 1 ? '1 side' : `${count} sider`;
   }
 
   function lastUpdate(book) {
@@ -233,14 +238,14 @@
 
   function pageLabel(book) {
     return book.totalPages
-      ? `Page ${book.currentPage} of ${book.totalPages}`
-      : `Page ${book.currentPage}`;
+      ? `Side ${book.currentPage} af ${book.totalPages}`
+      : `Side ${book.currentPage}`;
   }
 
   function renderCover(imgEl, placeholderEl, book) {
     if (book.coverUrl) {
       imgEl.src = book.coverUrl;
-      imgEl.alt = `Cover of ${book.title}`;
+      imgEl.alt = `Forside af ${book.title}`;
       imgEl.hidden = false;
       placeholderEl.hidden = true;
       imgEl.onerror = () => {
@@ -333,22 +338,22 @@
   }
 
   function inspireMessage({ progress, isComplete }) {
-    if (isComplete) return '🎉 Weekly goal smashed!';
-    if (progress >= 0.5) return '🚀 Great pace, keep going!';
-    if (progress > 0) return '📖 Nice start this week!';
-    return '✨ New week, fresh start!';
+    if (isComplete) return '🎉 Ugens mål er knust!';
+    if (progress >= 0.5) return '🚀 Flot tempo, bliv ved!';
+    if (progress > 0) return '📖 God start på ugen!';
+    return '✨ Ny uge, frisk start!';
   }
 
   function renderWeekPanel({ countEl, targetEl, fillEl, msgEl }, book) {
     const countOnly = hasWeekGoal();
     countEl.closest('.week-panel').classList.toggle('week-count-only', countOnly);
     if (countOnly) {
-      countEl.textContent = `${pagesReadThisWeek(book, getWeekStart())} pages this week`;
+      countEl.textContent = `${pagesText(pagesReadThisWeek(book, getWeekStart()))} denne uge`;
       return;
     }
     const stats = weeklyStats(book);
-    countEl.textContent = `${stats.pagesThisWeek} / ${stats.target} pages this week`;
-    targetEl.textContent = `Target: page ${stats.targetPage}`;
+    countEl.textContent = `${stats.pagesThisWeek} / ${pagesText(stats.target)} denne uge`;
+    targetEl.textContent = `Mål: side ${stats.targetPage}`;
     fillEl.style.width = `${stats.progress * 100}%`;
     fillEl.classList.toggle('complete', stats.isComplete);
     msgEl.textContent = inspireMessage(stats);
@@ -370,14 +375,14 @@
     const progress = Math.min(1, book.currentPage / book.totalPages);
     const pagesLeft = Math.max(0, book.totalPages - book.currentPage);
     panelEl.hidden = false;
-    countEl.textContent = `${Math.round(progress * 100)}% of the book`;
-    leftEl.textContent = pagesLeft > 0 ? `${pagesLeft} pages left` : '🏁 Finished!';
+    countEl.textContent = `${Math.round(progress * 100)} % af bogen`;
+    leftEl.textContent = pagesLeft > 0 ? `${pagesText(pagesLeft)} tilbage` : '🏁 Færdig!';
     fillEl.style.width = `${progress * 100}%`;
     fillEl.classList.toggle('complete', pagesLeft === 0);
   }
 
   function formatDay(date) {
-    return date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+    return date.toLocaleDateString(LOCALE, { weekday: 'short', day: 'numeric', month: 'short' });
   }
 
   function renderReaderGoal() {
@@ -387,8 +392,8 @@
 
     const stats = readerWeekStats(reader);
     const { status } = goalForWeek(reader);
-    el.goalCount.textContent = `${stats.pagesThisWeek} / ${stats.target} pages this week`;
-    el.goalDays.textContent = stats.daysLeft === 1 ? '1 day left' : `${stats.daysLeft} days left`;
+    el.goalCount.textContent = `${stats.pagesThisWeek} / ${pagesText(stats.target)} denne uge`;
+    el.goalDays.textContent = stats.daysLeft === 1 ? '1 dag tilbage' : `${stats.daysLeft} dage tilbage`;
     el.goalFill.style.width = `${stats.progress * 100}%`;
     el.goalFill.classList.toggle('complete', stats.isComplete);
     el.goalInspire.textContent = inspireMessage(stats);
@@ -398,9 +403,9 @@
     weekEnd.setDate(weekEnd.getDate() + 6);
     const range = `${formatDay(weekStart)} – ${formatDay(weekEnd)}`;
     el.goalHint.textContent = {
-      set: `Set for this week (${range})`,
-      carried: `Carried over from last week. Change it if this week (${range}) is different`,
-      unset: `No goal set yet. Pick one for this week (${range})`,
+      set: `Sat for denne uge (${range})`,
+      carried: `Overført fra sidste uge. Ret det, hvis denne uge (${range}) skal være anderledes`,
+      unset: `Intet mål sat endnu. Vælg et for denne uge (${range})`,
     }[status];
   }
 
@@ -535,9 +540,9 @@
     });
   }
 
-  function pagesText(match) {
-    if (!match.totalPages) return 'Page count unknown';
-    return match.pagesEstimated ? `~${match.totalPages} pages (estimate)` : `${match.totalPages} pages`;
+  function matchPagesText(match) {
+    if (!match.totalPages) return 'Sidetal ukendt';
+    return match.pagesEstimated ? `~${pagesText(match.totalPages)} (skøn)` : pagesText(match.totalPages);
   }
 
   function selectMatch(match, optionEl) {
@@ -551,10 +556,10 @@
       el.newAuthor.value = match.author || el.newAuthor.value;
       el.newTotalPages.value = match.totalPages || '';
       showMatchStatus(match.totalPages
-        ? '✅ Book chosen. Check the page count matches your copy.'
-        : '✅ Book chosen. Add the page count from your copy if you can.');
+        ? '✅ Bog valgt. Tjek, at sidetallet passer med din bog.'
+        : '✅ Bog valgt. Tilføj sidetallet fra din bog, hvis du kan.');
     } else {
-      showMatchStatus('OK — the book will be added without a cover.');
+      showMatchStatus('OK, bogen bliver tilføjet uden forside.');
     }
   }
 
@@ -580,9 +585,9 @@
       opt.querySelector('.match-meta').textContent = [
         match.author,
         match.year,
-        match.language === 'da' ? '🇩🇰 Danish' : null,
+        match.language === 'da' ? '🇩🇰 Dansk' : null,
       ].filter(Boolean).join(' · ');
-      opt.querySelector('.match-pages').textContent = pagesText(match);
+      opt.querySelector('.match-pages').textContent = matchPagesText(match);
       opt.addEventListener('click', () => selectMatch(match, opt));
       el.matchResults.appendChild(opt);
     }
@@ -590,7 +595,7 @@
     const none = document.createElement('button');
     none.type = 'button';
     none.className = 'match-option match-none';
-    none.textContent = 'None of these — add without a match';
+    none.textContent = 'Ingen af disse – tilføj uden match';
     none.addEventListener('click', () => selectMatch(null, none));
     el.matchResults.appendChild(none);
     el.matchResults.hidden = false;
@@ -606,22 +611,22 @@
 
     resetMatch();
     el.findBookBtn.disabled = true;
-    showMatchStatus('Searching…');
+    showMatchStatus('Søger…');
     try {
       const params = new URLSearchParams({ title });
       if (author) params.set('author', author);
       const { results } = await api(`lookup.php?${params}`);
       if (results.length === 0) {
         matchState = 'none';
-        showMatchStatus('No match found. You can still add the book — type the page count yourself.');
+        showMatchStatus('Intet fundet. Du kan stadig tilføje bogen, men skriv selv sidetallet.');
         return;
       }
       matchState = 'choosing';
-      showMatchStatus('Which one is your book? Tap the right one.');
+      showMatchStatus('Hvilken er din bog? Tryk på den rigtige.');
       renderMatches(results);
     } catch {
       matchState = 'none';
-      showMatchStatus('Could not search right now. You can still add the book.');
+      showMatchStatus('Kunne ikke søge lige nu. Du kan stadig tilføje bogen.');
     } finally {
       el.findBookBtn.disabled = false;
     }
@@ -638,7 +643,7 @@
       return;
     }
     if (matchState === 'choosing') {
-      showMatchStatus('👆 Pick your book in the list, or choose "None of these".');
+      showMatchStatus('👆 Vælg din bog på listen, eller vælg "Ingen af disse".');
       el.matchStatus.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       return;
     }
@@ -705,7 +710,7 @@
         <span class="hist-page"></span>
         <span class="hist-date"></span>
       `;
-      li.querySelector('.hist-page').textContent = `Page ${entry.page}`;
+      li.querySelector('.hist-page').textContent = `Side ${entry.page}`;
       li.querySelector('.hist-date').textContent = formatFull(entry.at);
       el.detailHistory.appendChild(li);
     }
@@ -720,7 +725,7 @@
 
     el.questionPanel.hidden = !showPanel;
     el.questionPanel.classList.toggle('pending', loading);
-    el.questionText.textContent = loading ? '🤔 Thinking of a question…' : book.pendingQuestion?.text || '';
+    el.questionText.textContent = loading ? '🤔 Finder på et spørgsmål…' : book.pendingQuestion?.text || '';
     el.questionForm.hidden = loading;
 
     const latest = book.comments[book.comments.length - 1];
@@ -792,7 +797,7 @@
       el.questionAnswer.value = '';
     } else {
       // The question is still pending on the server, so nothing is lost.
-      el.questionError.textContent = 'Could not send your answer. Try again, or skip.';
+      el.questionError.textContent = 'Dit svar kunne ikke sendes. Prøv igen, eller spring over.';
       el.questionError.hidden = false;
     }
   });
@@ -865,7 +870,7 @@
   el.deleteBookBtn.addEventListener('click', async () => {
     const book = books.find((b) => b.id === openBookId);
     if (!book) return;
-    if (!confirm(`Delete "${book.title}"? This cannot be undone.`)) return;
+    if (!confirm(`Slet "${book.title}"? Det kan ikke fortrydes.`)) return;
 
     await api(`books.php?id=${encodeURIComponent(openBookId)}`, {
       method: 'DELETE',
